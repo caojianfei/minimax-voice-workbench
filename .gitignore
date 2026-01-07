@@ -2,3 +2,5 @@
 *.db
 *.exe
 .idea
+generated/
+uploads/
