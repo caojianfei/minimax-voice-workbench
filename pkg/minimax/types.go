@@ -2,27 +2,37 @@ package minimax
 
 // T2ARequest represents request for Text-to-Audio (Sync & Async)
 type T2ARequest struct {
-	Model             string         `json:"model"` // speech-01-turbo, speech-01-hd
+	Model             string         `json:"model"` // speech-01-turbo, speech-01-hd, speech-2.6-hd, speech-2.6-turbo
 	Text              string         `json:"text"`
-	Stream            bool           `json:"stream,omitempty"` // For sync
+	TextFileID        int64          `json:"text_file_id,omitempty"`
+	LanguageBoost     string         `json:"language_boost,omitempty"` // auto, Chinese, English, etc.
 	VoiceSetting      VoiceSetting   `json:"voice_setting"`
 	AudioSetting      AudioSetting   `json:"audio_setting"`
 	PronunciationDict map[string]any `json:"pronunciation_dict,omitempty"`
+	VoiceModify       VoiceModify    `json:"voice_modify,omitempty"`
+	AigcWatermark     bool           `json:"aigc_watermark,omitempty"`
+}
+
+type VoiceModify struct {
+	Pitch        int    `json:"pitch,omitempty"`
+	Intensity    int    `json:"intensity,omitempty"`
+	Timbre       int    `json:"timbre,omitempty"`
+	SoundEffects string `json:"sound_effects,omitempty"` // spacious_echo, etc.
 }
 
 type VoiceSetting struct {
 	VoiceID string  `json:"voice_id"`
 	Speed   float64 `json:"speed,omitempty"`
 	Vol     float64 `json:"vol,omitempty"`
-	Pitch   float64 `json:"pitch,omitempty"`
+	Pitch   int     `json:"pitch,omitempty"`
 	Emotion string  `json:"emotion,omitempty"` // happy, sad, etc.
 }
 
 type AudioSetting struct {
-	SampleRate int    `json:"sample_rate,omitempty"` // 32000
-	Bitrate    int    `json:"bitrate,omitempty"`     // 128000
-	Format     string `json:"format,omitempty"`      // mp3, wav
-	Channel    int    `json:"channel,omitempty"`     // 1
+	AudioSampleRate int64  `json:"audio_sample_rate,omitempty"` // 32000
+	Bitrate         int64  `json:"bitrate,omitempty"`           // 128000
+	Format          string `json:"format,omitempty"`            // mp3, wav
+	Channel         int64  `json:"channel,omitempty"`           // 1, 2
 }
 
 // T2AResponse represents response from Sync T2A

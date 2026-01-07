@@ -46,16 +46,6 @@ func GenerateSpeech(c *gin.Context) {
 		return
 	}
 
-	if req.Model == "" {
-		req.Model = "speech-01-turbo"
-	}
-	if req.Speed == 0 {
-		req.Speed = 1.0
-	}
-	if req.Vol == 0 {
-		req.Vol = 1.0
-	}
-
 	client := minimax.NewClient(apiKey.Key)
 
 	t2aReq := &minimax.T2ARequest{
@@ -67,10 +57,10 @@ func GenerateSpeech(c *gin.Context) {
 			Vol:     req.Vol,
 		},
 		AudioSetting: minimax.AudioSetting{
-			SampleRate: 32000,
-			Bitrate:    128000,
-			Format:     "mp3",
-			Channel:    1,
+			AudioSampleRate: 32000,
+			Bitrate:         128000,
+			Format:          "mp3",
+			Channel:         1,
 		},
 	}
 
