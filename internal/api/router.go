@@ -1,0 +1,43 @@
+package api
+
+import (
+	"github.com/gin-gonic/gin"
+)
+
+func SetupRouter(r *gin.Engine) {
+	// Enable CORS for dev
+	r.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+		c.Next()
+	})
+
+	api := r.Group("/api")
+	{
+		// Keys
+		api.GET("/keys", ListKeys)
+		api.POST("/keys", AddKey)
+		api.DELETE("/keys/:id", DeleteKey)
+
+		// Voices
+		api.GET("/voices", ListVoices)
+		api.POST("/voices/clone", CloneVoice)
+		api.POST("/voices/sync", SyncVoices)
+		api.POST("/voices/design", DesignVoice)
+		api.DELETE("/voices/:id", DeleteVoice)
+
+		// Synthesis
+		api.GET("/synthesis", ListSynthesisTasks)
+		api.POST("/synthesis", GenerateSpeech)
+		api.GET("/synthesis/:id/status", CheckTaskStatus)
+		api.DELETE("/synthesis/:id", DeleteSynthesisTask)
+	}
+
+	// Static files for generated audio
+	r.Static("/files", "./generated")
+}
