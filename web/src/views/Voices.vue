@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
 import { Plus, Trash2, Play, Mic, Cloud, Palette } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -12,18 +12,52 @@ const showModal = ref(false)
 const modalMode = ref('clone') // 'clone' or 'design'
 const loading = ref(false)
 
-// Form Data - Shared for Clone/Design
+// Speech model options
+const modelOptions = [
+  { value: 'speech-2.6-hd', label: 'Speech 2.6 HD' },
+  { value: 'speech-2.6-turbo', label: 'Speech 2.6 Turbo' },
+  { value: 'speech-02-hd', label: 'Speech 02 HD' },
+  { value: 'speech-02-turbo', label: 'Speech 02 Turbo' },
+  { value: 'speech-01-hd', label: 'Speech 01 HD' },
+  { value: 'speech-01-turbo', label: 'Speech 01 Turbo' },
+]
+
+// Form Data
 const form = ref({
   name: '',
   key_id: '',
-  file: null,    // for clone
-  prompt: '',    // for design
-  preview_text: 'Hello, this is a test voice.', // for design
-  watermark: false
+  file: null,
+  prompt_file: null,
+  prompt_text: '',
+  demo_text: '',
+  model: 'speech-2.6-hd',
+  noise_reduction: false,
+  volume_normalization: false,
+  watermark: false,
+  // For design
+  prompt: '',
+  preview_text: 'Hello, this is a test voice.',
 })
 
 const api = axios.create({
   baseURL: import.meta.env.DEV ? 'http://localhost:8080/api' : '/api'
+})
+
+// Categorize voices by type
+const categorizedVoices = computed(() => {
+  const categories = {
+    system: [],
+    cloned: [],
+    generated: []
+  }
+  
+  voices.value.forEach(voice => {
+    if (categories[voice.type]) {
+      categories[voice.type].push(voice)
+    }
+  })
+  
+  return categories
 })
 
 const fetchData = async () => {
@@ -35,7 +69,6 @@ const fetchData = async () => {
     voices.value = vRes.data.data
     keys.value = kRes.data.data
     
-    // Auto specific key if only one
     if (keys.value.length > 0 && !form.value.key_id) {
       form.value.key_id = keys.value[0].id
     }
@@ -51,6 +84,10 @@ const openModal = (mode) => {
 
 const handleFileChange = (e) => {
   form.value.file = e.target.files[0]
+}
+
+const handlePromptFileChange = (e) => {
+  form.value.prompt_file = e.target.files[0]
 }
 
 const submitForm = async () => {
@@ -69,6 +106,20 @@ const cloneVoice = async () => {
   formData.append('name', form.value.name)
   formData.append('key_id', form.value.key_id)
   formData.append('file', form.value.file)
+  
+  if (form.value.prompt_file) {
+    formData.append('prompt_file', form.value.prompt_file)
+  }
+  if (form.value.prompt_text) {
+    formData.append('prompt_text', form.value.prompt_text)
+  }
+  if (form.value.demo_text) {
+    formData.append('demo_text', form.value.demo_text)
+    formData.append('model', form.value.model)
+  }
+  formData.append('noise_reduction', form.value.noise_reduction)
+  formData.append('volume_normalization', form.value.volume_normalization)
+  formData.append('watermark', form.value.watermark)
 
   try {
     await api.post('/voices/clone', formData)
@@ -107,16 +158,19 @@ const cleanupModal = () => {
   loading.value = false
   form.value.name = ''
   form.value.file = null
+  form.value.prompt_file = null
+  form.value.prompt_text = ''
+  form.value.demo_text = ''
   form.value.prompt = ''
+  form.value.noise_reduction = false
+  form.value.volume_normalization = false
+  form.value.watermark = false
   fetchData()
 }
 
 const deleteVoice = async (voice) => {
   if (!confirm(t('voices.confirmDelete'))) return
   
-  // Need key for remote delete. Try form key or first key?
-  // Ideally, prompt user for key or use a selected "active key".
-  // For now: use first key if available, or try without.
   const keyId = form.value.key_id || (keys.value[0] ? keys.value[0].id : '')
   
   try {
@@ -158,7 +212,6 @@ onMounted(fetchData)
       </div>
       <div class="header-actions">
         <div class="key-selector">
-          <!-- Optional Key Selector for Global Acts like Sync -->
           <select v-model="form.key_id" placeholder="Select Key">
              <option v-for="k in keys" :key="k.id" :value="k.id">
               {{ k.platform }} - {{ k.key.substring(0,8) }}...
@@ -177,22 +230,73 @@ onMounted(fetchData)
       </div>
     </header>
 
-    <div class="voices-grid">
-      <div v-for="voice in voices" :key="voice.id" class="card voice-card">
-        <div class="voice-icon">
-          <Mic size="24" />
+    <!-- Categorized Voice Lists -->
+    <div class="voice-categories">
+      <!-- System Voices -->
+      <div v-if="categorizedVoices.system.length > 0" class="category-section">
+        <h2 class="category-title">系统音色 (System Voices)</h2>
+        <div class="voices-grid">
+          <div v-for="voice in categorizedVoices.system" :key="voice.id" class="card voice-card">
+            <div class="voice-icon">
+              <Mic size="24" />
+            </div>
+            <div class="voice-info">
+              <h3>{{ voice.name }}</h3>
+              <span class="voice-id">{{ voice.voice_id }}</span>
+              <span class="badge badge-system">{{ voice.type }}</span>
+            </div>
+            <div class="actions">
+              <button @click="deleteVoice(voice)" class="btn-icon delete">
+                <Trash2 size="18" />
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="voice-info">
-          <h3>{{ voice.name }}</h3>
-          <span class="voice-id">{{ voice.voice_id }}</span>
-          <span class="badge">{{ voice.type }}</span>
+      </div>
+
+      <!-- Cloned Voices -->
+      <div v-if="categorizedVoices.cloned.length > 0" class="category-section">
+        <h2 class="category-title">复刻音色 (Cloned Voices)</h2>
+        <div class="voices-grid">
+          <div v-for="voice in categorizedVoices.cloned" :key="voice.id" class="card voice-card">
+            <div class="voice-icon">
+              <Mic size="24" />
+            </div>
+            <div class="voice-info">
+              <h3>{{ voice.name }}</h3>
+              <span class="voice-id">{{ voice.voice_id }}</span>
+              <span class="badge badge-cloned">{{ voice.type }}</span>
+            </div>
+            <div class="actions">
+              <audio v-if="voice.demo_audio" :src="voice.demo_audio" controls class="mini-player"></audio>
+              <button @click="deleteVoice(voice)" class="btn-icon delete">
+                <Trash2 size="18" />
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="actions">
-           <!-- Preview? If design -->
-           <audio v-if="voice.preview" :src="voice.preview" controls class="mini-player"></audio>
-           <button @click="deleteVoice(voice)" class="btn-icon delete">
-            <Trash2 size="18" />
-          </button>
+      </div>
+
+      <!-- Generated Voices -->
+      <div v-if="categorizedVoices.generated.length > 0" class="category-section">
+        <h2 class="category-title">设计音色 (Generated Voices)</h2>
+        <div class="voices-grid">
+          <div v-for="voice in categorizedVoices.generated" :key="voice.id" class="card voice-card">
+            <div class="voice-icon">
+              <Mic size="24" />
+            </div>
+            <div class="voice-info">
+              <h3>{{ voice.name }}</h3>
+              <span class="voice-id">{{ voice.voice_id }}</span>
+              <span class="badge badge-generated">{{ voice.type }}</span>
+            </div>
+            <div class="actions">
+              <audio v-if="voice.preview" :src="voice.preview" controls class="mini-player"></audio>
+              <button @click="deleteVoice(voice)" class="btn-icon delete">
+                <Trash2 size="18" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
       
@@ -206,7 +310,7 @@ onMounted(fetchData)
       <div class="modal card">
         <h2>{{ modalMode === 'clone' ? t('voices.modalTitle') : t('voices.modalDesign') }}</h2>
         
-        <!-- Common -->
+        <!-- Common Fields -->
         <div class="form-group">
           <label>{{ t('voices.labelKey') }}</label>
           <select v-model="form.key_id">
@@ -223,21 +327,62 @@ onMounted(fetchData)
         <!-- Clone Fields -->
         <template v-if="modalMode === 'clone'">
             <div class="form-group">
-            <label>{{ t('voices.labelSample') }}</label>
-            <input type="file" @change="handleFileChange" accept="audio/*" />
-            <p class="hint">{{ t('voices.hintSample') }}</p>
+              <label>{{ t('voices.labelSample') }}</label>
+              <input type="file" @change="handleFileChange" accept="audio/*" />
+              <p class="hint">{{ t('voices.hintSample') }}</p>
+            </div>
+            
+            <div class="form-group">
+              <label>{{ t('voices.labelPromptFile') }}</label>
+              <input type="file" @change="handlePromptFileChange" accept="audio/*" />
+              <p class="hint">{{ t('voices.hintPromptFile') }}</p>
+            </div>
+            
+            <div class="form-group">
+              <label>{{ t('voices.labelPromptText') }}</label>
+              <input v-model="form.prompt_text" type="text" :placeholder="t('voices.phPromptText')" />
+            </div>
+
+            <div class="form-group">
+              <label>{{ t('voices.labelDemoText') }}</label>
+              <textarea v-model="form.demo_text" :placeholder="t('voices.phDemoText')" maxlength="1000"></textarea>
+              <p class="hint">{{ t('voices.hintDemoText') }}</p>
+            </div>
+
+            <div class="form-group" v-if="form.demo_text">
+              <label>{{ t('voices.labelModel') }}</label>
+              <select v-model="form.model">
+                <option v-for="opt in modelOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="form.noise_reduction" />
+                <span>{{ t('voices.labelNoiseReduction') }}</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="form.volume_normalization" />
+                <span>{{ t('voices.labelVolumeNorm') }}</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="form.watermark" />
+                <span>{{ t('voices.labelWatermark') }}</span>
+              </label>
             </div>
         </template>
 
         <!-- Design Fields -->
         <template v-else>
             <div class="form-group">
-            <label>{{ t('voices.labelPrompt') }}</label>
-            <textarea v-model="form.prompt" :placeholder="t('voices.phPrompt')"></textarea>
+              <label>{{ t('voices.labelPrompt') }}</label>
+              <textarea v-model="form.prompt" :placeholder="t('voices.phPrompt')"></textarea>
             </div>
             <div class="form-group">
-            <label>{{ t('voices.labelPreview') }}</label>
-            <input v-model="form.preview_text" type="text" :placeholder="t('voices.phPreview')" />
+              <label>{{ t('voices.labelPreview') }}</label>
+              <input v-model="form.preview_text" type="text" :placeholder="t('voices.phPreview')" />
             </div>
         </template>
 
@@ -269,6 +414,27 @@ onMounted(fetchData)
 .key-selector select {
     padding: var(--space-2);
     width: 150px;
+}
+
+.voice-categories {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.category-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.category-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--border-color);
 }
 
 .voices-grid {
@@ -322,16 +488,35 @@ onMounted(fetchData)
   display: inline-block;
   font-size: 0.75rem;
   padding: 2px 6px;
-  background: var(--bg-primary);
   border-radius: 4px;
-  color: var(--text-tertiary);
   width: fit-content;
   margin-top: 4px;
 }
 
+.badge-system {
+  background: #3b82f6;
+  color: white;
+}
+
+.badge-cloned {
+  background: #10b981;
+  color: white;
+}
+
+.badge-generated {
+  background: #8b5cf6;
+  color: white;
+}
+
 .mini-player {
     height: 30px;
-    width: 100px;
+    width: 120px;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
 }
 
 /* Modal */
@@ -349,7 +534,9 @@ onMounted(fetchData)
 }
 
 .modal {
-  width: 450px;
+  width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -359,6 +546,25 @@ onMounted(fetchData)
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+.form-row {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
 }
 
 .hint {
@@ -372,5 +578,10 @@ onMounted(fetchData)
   justify-content: flex-end;
   gap: var(--space-3);
   margin-top: var(--space-2);
+}
+
+textarea {
+  min-height: 80px;
+  resize: vertical;
 }
 </style>

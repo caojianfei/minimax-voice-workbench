@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/hex"
 	"fmt"
+	"io"
 	"minimax-voice-workbench/internal/database"
 	"minimax-voice-workbench/internal/model"
 	"minimax-voice-workbench/pkg/minimax"
@@ -47,10 +48,25 @@ func SyncVoices(c *gin.Context) {
 	// Helper to upsert
 	upsert := func(vInfo minimax.VoiceInfo, vType string) {
 		var existing model.Voice
-		if database.DB.Where("voice_id = ?", vInfo.VoiceID).First(&existing).Error == nil {
-			// Update?
+		// Use Unscoped to include soft-deleted records
+		err := database.DB.Unscoped().Where("voice_id = ?", vInfo.VoiceID).First(&existing).Error
+
+		if err == nil {
+			// Record exists (may be soft-deleted)
+			if existing.DeletedAt.Valid {
+				// Restore soft-deleted record
+				database.DB.Unscoped().Model(&existing).Updates(map[string]interface{}{
+					"deleted_at": nil,
+					"name":       vInfo.VoiceName,
+					"type":       vType,
+				})
+				count++
+			}
+			// If not deleted, just skip (already exists)
 			return
 		}
+
+		// Create new record
 		newVoice := model.Voice{
 			Name:    vInfo.VoiceName,
 			VoiceID: vInfo.VoiceID,
@@ -82,6 +98,13 @@ func CloneVoice(c *gin.Context) {
 	// 1. Parse Form
 	name := c.PostForm("name")
 	keyIDStr := c.PostForm("key_id")
+	promptText := c.PostForm("prompt_text") // Optional: text for prompt audio
+	demoText := c.PostForm("demo_text")     // Optional: text for demo generation
+	speechModel := c.PostForm("model")      // Optional: speech model
+	noiseReduction := c.PostForm("noise_reduction") == "true"
+	volumeNorm := c.PostForm("volume_normalization") == "true"
+	watermark := c.PostForm("watermark") == "true"
+
 	if name == "" || keyIDStr == "" {
 		ErrorResponse(c, http.StatusBadRequest, 2, "name and key_id are required")
 		return
@@ -94,13 +117,14 @@ func CloneVoice(c *gin.Context) {
 		return
 	}
 
+	// 2. Get main clone audio file
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
 		ErrorResponse(c, http.StatusBadRequest, 4, "File upload required")
 		return
 	}
 
-	// 2. Save file temporarily
+	// 3. Save main file temporarily
 	tempDir := "uploads"
 	os.MkdirAll(tempDir, 0755)
 	tempPath := filepath.Join(tempDir, fmt.Sprintf("%d_%s", time.Now().Unix(), fileHeader.Filename))
@@ -110,7 +134,7 @@ func CloneVoice(c *gin.Context) {
 	}
 	defer os.Remove(tempPath)
 
-	// 3. Upload to Minimax
+	// 4. Upload main clone audio to Minimax
 	client := minimax.NewClient(apiKey.Key)
 	uploadResp, err := client.UploadFile(tempPath, "voice_clone")
 	if err != nil {
@@ -118,25 +142,72 @@ func CloneVoice(c *gin.Context) {
 		return
 	}
 
-	// 4. Call Voice Clone
-	voiceID := fmt.Sprintf("Clone_%d", time.Now().Unix())
+	// 5. Handle optional prompt audio
+	var clonePrompt *minimax.ClonePrompt
+	promptFileHeader, err := c.FormFile("prompt_file")
+	if err == nil && promptFileHeader != nil {
+		// Save prompt file temporarily
+		promptTempPath := filepath.Join(tempDir, fmt.Sprintf("%d_prompt_%s", time.Now().Unix(), promptFileHeader.Filename))
+		if err := c.SaveUploadedFile(promptFileHeader, promptTempPath); err == nil {
+			defer os.Remove(promptTempPath)
 
-	cloneReq := &minimax.VoiceCloneRequest{
-		FileID:  uploadResp.FileID,
-		VoiceID: voiceID,
+			// Upload prompt audio
+			promptUploadResp, err := client.UploadFile(promptTempPath, "prompt_audio")
+			if err == nil {
+				clonePrompt = &minimax.ClonePrompt{
+					PromptAudio: promptUploadResp.File.FileID,
+					PromptText:  promptText,
+				}
+			}
+		}
 	}
 
-	_, err = client.VoiceClone(cloneReq)
+	// 6. Call Voice Clone
+	voiceID := fmt.Sprintf("Clone_%d", time.Now().Unix())
+
+	// Set default model if demo text provided
+	if demoText != "" && speechModel == "" {
+		speechModel = "speech-2.6-hd"
+	}
+
+	cloneReq := &minimax.VoiceCloneRequest{
+		FileID:                  uploadResp.File.FileID,
+		VoiceID:                 voiceID,
+		ClonePrompt:             clonePrompt,
+		Text:                    demoText,
+		Model:                   speechModel,
+		LanguageBoost:           "auto",
+		NeedNoiseReduction:      noiseReduction,
+		NeedVolumeNormalization: volumeNorm,
+		AigcWatermark:           watermark,
+	}
+
+	cloneResp, err := client.VoiceClone(cloneReq)
 	if err != nil {
 		ErrorResponse(c, http.StatusInternalServerError, 7, "Minimax Voice Clone Failed: "+err.Error())
 		return
 	}
 
-	// 5. Save to DB
+	// 7. Download demo audio if available
+	var demoAudioPath string
+	if cloneResp.DemoAudio != "" {
+		outputDir := "generated"
+		os.MkdirAll(outputDir, 0755)
+		filename := fmt.Sprintf("demo_%s.mp3", voiceID)
+		demoFilePath := filepath.Join(outputDir, filename)
+
+		// Download from URL
+		if err := downloadAudioFromURL(cloneResp.DemoAudio, demoFilePath); err == nil {
+			demoAudioPath = "/files/" + filename
+		}
+	}
+
+	// 8. Save to DB
 	voice := model.Voice{
-		Name:    name,
-		VoiceID: voiceID,
-		Type:    "cloned",
+		Name:      name,
+		VoiceID:   voiceID,
+		Type:      "cloned",
+		DemoAudio: demoAudioPath,
 	}
 
 	if err := database.DB.Create(&voice).Error; err != nil {
@@ -145,6 +216,24 @@ func CloneVoice(c *gin.Context) {
 	}
 
 	SuccessResponse(c, voice)
+}
+
+// Helper function to download audio from URL
+func downloadAudioFromURL(url, filepath string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
 }
 
 // DesignVoiceRequest ...

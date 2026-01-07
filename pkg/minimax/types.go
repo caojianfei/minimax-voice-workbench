@@ -72,27 +72,41 @@ type FileRetrieveData struct {
 
 // Voice Cloning
 type VoiceCloneRequest struct {
-	FileID      string      `json:"file_id"`  // Uploaded file ID
-	VoiceID     string      `json:"voice_id"` // Custom ID
-	ClonePrompt ClonePrompt `json:"clone_prompt,omitempty"`
-	Text        string      `json:"text,omitempty"` // For demo generation
-	Model       string      `json:"model,omitempty"`
+	FileID                  int64        `json:"file_id"`  // Uploaded file ID
+	VoiceID                 string       `json:"voice_id"` // Custom ID
+	ClonePrompt             *ClonePrompt `json:"clone_prompt,omitempty"`
+	Text                    string       `json:"text,omitempty"`                      // For demo generation, max 1000 chars
+	Model                   string       `json:"model,omitempty"`                     // speech-2.6-hd, speech-2.6-turbo, etc.
+	LanguageBoost           string       `json:"language_boost,omitempty"`            // auto, Chinese, English, etc.
+	NeedNoiseReduction      bool         `json:"need_noise_reduction,omitempty"`      // Default false
+	NeedVolumeNormalization bool         `json:"need_volume_normalization,omitempty"` // Default false
+	AigcWatermark           bool         `json:"aigc_watermark,omitempty"`            // Default false
 }
 
 type ClonePrompt struct {
-	PromptAudio string `json:"prompt_audio"`
+	PromptAudio int64  `json:"prompt_audio"`
 	PromptText  string `json:"prompt_text"`
 }
 
 type VoiceCloneResponse struct {
-	BaseResp  BaseResp `json:"base_resp"`
-	DemoAudio string   `json:"demo_audio"` // URL
+	InputSensitive     bool     `json:"input_sensitive"`
+	InputSensitiveType int      `json:"input_sensitive_type"`
+	DemoAudio          string   `json:"demo_audio"` // URL or empty
+	BaseResp           BaseResp `json:"base_resp"`
 }
 
 // Upload
 type UploadResponse struct {
-	FileID   string   `json:"file_id"` // String in upload, Int64 in async? Check docs. Upload doc says string.
-	BaseResp BaseResp `json:"base_resp"`
+	File     UploadFileData `json:"file"`
+	BaseResp BaseResp       `json:"base_resp"`
+}
+
+type UploadFileData struct {
+	FileID    int64  `json:"file_id"`
+	Bytes     int64  `json:"bytes"`
+	CreatedAt int64  `json:"created_at"`
+	Filename  string `json:"filename"`
+	Purpose   string `json:"purpose"`
 }
 
 // Voice Design

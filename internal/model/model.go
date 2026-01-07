@@ -21,8 +21,9 @@ type Voice struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
 	Name      string         `gorm:"size:100;not null" json:"name"`
 	VoiceID   string         `gorm:"size:100;uniqueIndex;not null" json:"voice_id"` // Minimax Voice ID
-	Type      string         `gorm:"size:20;default:'cloned'" json:"type"`          // cloned, official, designed
-	Preview   string         `gorm:"size:255" json:"preview"`                       // Path to preview audio
+	Type      string         `gorm:"size:20;default:'cloned'" json:"type"`          // cloned, system, generated
+	Preview   string         `gorm:"size:255" json:"preview"`                       // Path to preview audio (for design)
+	DemoAudio string         `gorm:"size:255" json:"demo_audio"`                    // Path to demo audio (for clone)
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`

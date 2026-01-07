@@ -153,7 +153,7 @@ func (c *Client) RetrieveFile(fileID int64) (*FileRetrieveResponse, error) {
 
 // Upload File
 func (c *Client) UploadFile(filePath string, purpose string) (*UploadResponse, error) {
-	url := fmt.Sprintf("%s/files/upload?purpose=%s", BaseURL, purpose)
+	url := fmt.Sprintf("%s/files/upload", BaseURL)
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -163,6 +163,11 @@ func (c *Client) UploadFile(filePath string, purpose string) (*UploadResponse, e
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
+
+	// Add purpose as form field
+	if err := writer.WriteField("purpose", purpose); err != nil {
+		return nil, err
+	}
 
 	part, err := writer.CreateFormFile("file", filepath.Base(filePath))
 	if err != nil {
@@ -184,6 +189,11 @@ func (c *Client) UploadFile(filePath string, purpose string) (*UploadResponse, e
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("upload failed: %s", string(bodyBytes))
+	}
 
 	var result UploadResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
