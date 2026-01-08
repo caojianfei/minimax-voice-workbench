@@ -11,6 +11,8 @@ type ApiKey struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
 	Platform  string         `gorm:"size:50;default:'minimax'" json:"platform"`
 	Key       string         `gorm:"size:255;not null" json:"key"`
+	Remark    string         `gorm:"size:100" json:"remark"`
+	IsDefault bool           `gorm:"default:false" json:"is_default"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`

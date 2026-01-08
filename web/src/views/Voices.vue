@@ -25,7 +25,6 @@ const modelOptions = [
 // Form Data
 const form = ref({
   name: '',
-  key_id: '',
   file: null,
   prompt_file: null,
   prompt_text: '',
@@ -60,6 +59,10 @@ const categorizedVoices = computed(() => {
   return categories
 })
 
+const defaultKey = computed(() => {
+  return keys.value.find(k => k.is_default) || keys.value[0]
+})
+
 const fetchData = async () => {
   try {
     const [vRes, kRes] = await Promise.all([
@@ -70,7 +73,7 @@ const fetchData = async () => {
     keys.value = kRes.data.data
     
     if (keys.value.length > 0 && !form.value.key_id) {
-      form.value.key_id = keys.value[0].id
+      // form.value.key_id = keys.value[0].id
     }
   } catch (e) {
     console.error(e)
@@ -96,7 +99,7 @@ const submitForm = async () => {
 }
 
 const cloneVoice = async () => {
-  if (!form.value.name || !form.value.file || !form.value.key_id) {
+  if (!form.value.name || !form.value.file) {
     alert(t('voices.alertFill'))
     return
   }
@@ -104,7 +107,6 @@ const cloneVoice = async () => {
   loading.value = true
   const formData = new FormData()
   formData.append('name', form.value.name)
-  formData.append('key_id', form.value.key_id)
   formData.append('file', form.value.file)
   
   if (form.value.prompt_file) {
@@ -131,7 +133,7 @@ const cloneVoice = async () => {
 }
 
 const designVoice = async () => {
-  if (!form.value.prompt || !form.value.preview_text || !form.value.key_id) {
+  if (!form.value.prompt || !form.value.preview_text) {
     alert(t('voices.alertFill'))
     return
   }
@@ -140,7 +142,6 @@ const designVoice = async () => {
   try {
     const payload = {
       name: form.value.name,
-      key_id: form.value.key_id,
       prompt: form.value.prompt,
       preview_text: form.value.preview_text,
       watermark: form.value.watermark
@@ -171,10 +172,8 @@ const cleanupModal = () => {
 const deleteVoice = async (voice) => {
   if (!confirm(t('voices.confirmDelete'))) return
   
-  const keyId = form.value.key_id || (keys.value[0] ? keys.value[0].id : '')
-  
   try {
-    await api.delete(`/voices/${voice.id}?key_id=${keyId}`)
+    await api.delete(`/voices/${voice.id}`)
     fetchData()
   } catch (e) {
     alert(t('voices.alertDeleteFail'))
@@ -182,15 +181,9 @@ const deleteVoice = async (voice) => {
 }
 
 const syncVoices = async () => {
-  const keyId = form.value.key_id || (keys.value[0] ? keys.value[0].id : '')
-  if (!keyId) {
-    alert('Please add an API Key first')
-    return
-  }
-  
   loading.value = true
   try {
-    const res = await api.post(`/voices/sync?key_id=${keyId}`)
+    const res = await api.post(`/voices/sync`)
     alert(t('voices.syncSuccess', { count: res.data.data.added }))
     fetchData()
   } catch (e) {
@@ -211,12 +204,12 @@ onMounted(fetchData)
         <p class="subtitle">{{ t('voices.subtitle') }}</p>
       </div>
       <div class="header-actions">
-        <div class="key-selector">
-          <select v-model="form.key_id" placeholder="Select Key">
-             <option v-for="k in keys" :key="k.id" :value="k.id">
-              {{ k.platform }} - {{ k.key.substring(0,8) }}...
-            </option>
-          </select>
+        <div v-if="defaultKey" class="current-key-display">
+             <span class="text-muted">{{ t('voices.currentKey') }}:</span>
+             <code class="key-val">{{ defaultKey.remark || (defaultKey.key.substring(0,8) + '...') }}</code>
+        </div>
+        <div v-else class="text-warning">
+            {{ t('voices.noDefaultKey') }}
         </div>
         <button @click="syncVoices" :disabled="loading" class="btn btn-secondary">
           <Cloud size="18" /> {{ t('voices.sync') }}
@@ -312,14 +305,6 @@ onMounted(fetchData)
         
         <!-- Common Fields -->
         <div class="form-group">
-          <label>{{ t('voices.labelKey') }}</label>
-          <select v-model="form.key_id">
-            <option v-for="k in keys" :key="k.id" :value="k.id">
-              {{ k.platform }} - {{ k.key.substring(0,8) }}...
-            </option>
-          </select>
-        </div>
-        <div class="form-group">
           <label>{{ t('voices.labelName') }}</label>
           <input v-model="form.name" type="text" :placeholder="t('voices.phName')" />
         </div>
@@ -411,9 +396,30 @@ onMounted(fetchData)
     align-items: center;
 }
 
-.key-selector select {
-    padding: var(--space-2);
-    width: 150px;
+.current-key-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 16px;
+    font-size: 0.875rem;
+}
+
+.text-muted {
+    color: var(--text-secondary);
+}
+
+.key-val {
+    background: var(--bg-tertiary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    color: var(--text-primary);
+}
+
+.text-warning {
+    color: var(--error);
+    margin-right: 16px;
+    font-size: 0.875rem;
 }
 
 .voice-categories {

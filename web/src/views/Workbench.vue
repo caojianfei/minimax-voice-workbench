@@ -19,7 +19,7 @@ const form = ref({
   text: '',
   text_file_id: '',
   voice_id: '',
-  key_id: '',
+  // key_id: '',
   speed: 1.0,
   vol: 1.0,
   
@@ -89,22 +89,13 @@ const handleFileUpload = async (event) => {
     const file = event.target.files[0]
     if (!file) return
 
-    // Basic validation
-    if (file.name.endsWith('.txt') || file.name.endsWith('.zip')) {
-        // Proceed
-    } else {
+    if (!file.name.endsWith('.txt') && !file.name.endsWith('.zip')) {
         alert('Only .txt and .zip files are allowed')
-        return
-    }
-
-    if (!form.value.key_id) {
-        alert(t('workbench.alertComplete'))
         return
     }
 
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('key_id', form.value.key_id)
 
     isUploading.value = true
     try {
@@ -137,13 +128,17 @@ const init = async () => {
     keys.value = kRes.data.data
 
     if (voices.value.length > 0) form.value.voice_id = voices.value[0].voice_id
-    if (keys.value.length > 0) form.value.key_id = keys.value[0].id
+    // if (keys.value.length > 0) form.value.key_id = keys.value[0].id
     
     startPolling()
   } catch (e) {
     console.error(e)
   }
 }
+
+const defaultKey = computed(() => {
+  return keys.value.find(k => k.is_default) || keys.value[0]
+})
 
 const generate = async () => {
   // Clear mutually exclusive field based on input type
@@ -161,7 +156,7 @@ const generate = async () => {
     }
   }
 
-  if (!form.value.voice_id || !form.value.key_id) {
+  if (!form.value.voice_id) {
     alert(t('workbench.alertComplete'))
     return
   }
@@ -227,7 +222,7 @@ const startPolling = () => {
     for (const task of pendingTasks) {
        if (task.task_id) {
            try {
-             const res = await api.get(`/synthesis/${task.id}/status?key_id=${form.value.key_id}`) 
+             const res = await api.get(`/synthesis/${task.id}/status`) 
              const updated = res.data.data
              const idx = tasks.value.findIndex(t => t.id === updated.id)
              if (idx !== -1) tasks.value[idx] = updated
@@ -258,11 +253,12 @@ onUnmounted(() => {
           <div class="form-row">
             <div class="form-group flex-1">
               <label>{{ t('workbench.labelKey') }}</label>
-              <select v-model="form.key_id">
-                <option v-for="k in keys" :key="k.id" :value="k.id">
-                  {{ k.platform }} - {{ k.key.substring(0,8) }}...
-                </option>
-              </select>
+              <div v-if="defaultKey" class="key-display-box">
+                  {{ defaultKey.remark || (defaultKey.key.substring(0,8) + '...') }}
+              </div>
+              <div v-else class="key-display-box error">
+                  {{ t('voices.noDefaultKey') }}
+              </div>
             </div>
             <div class="form-group flex-1">
               <label class="label-with-tip">
@@ -584,6 +580,23 @@ onUnmounted(() => {
 
 .flex-1 {
   flex: 1;
+}
+
+.key-display-box {
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: monospace;
+  height: 38px; /* Match select height approx */
+  display: flex;
+  align-items: center;
+}
+
+.key-display-box.error {
+  border-color: var(--error);
+  color: var(--error);
 }
 
 .advanced-toggle {

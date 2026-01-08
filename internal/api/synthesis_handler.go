@@ -30,7 +30,7 @@ type GenerateSpeechRequest struct {
 	VoiceID           string         `json:"voice_id" binding:"required"`
 	Speed             float64        `json:"speed"`
 	Vol               float64        `json:"vol"`
-	KeyID             uint           `json:"key_id" binding:"required"`
+	KeyID             uint           `json:"key_id"`
 	Model             string         `json:"model"`
 	Pitch             int            `json:"pitch"`
 	Emotion           string         `json:"emotion"`
@@ -57,9 +57,9 @@ func GenerateSpeech(c *gin.Context) {
 		return
 	}
 
-	var apiKey model.ApiKey
-	if err := database.DB.First(&apiKey, req.KeyID).Error; err != nil {
-		ErrorResponse(c, http.StatusBadRequest, 3, "Invalid API Key ID")
+	apiKey, err := getEffectiveKey(req.KeyID)
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, 3, "Invalid API Key or No Default Key")
 		return
 	}
 
@@ -157,16 +157,10 @@ func CheckTaskStatus(c *gin.Context) {
 	}
 
 	keyID, _ := strconv.Atoi(keyIDStr)
-	var apiKey model.ApiKey
-	if err := database.DB.First(&apiKey, keyID).Error; err != nil {
-		var keys []model.ApiKey
-		database.DB.Find(&keys)
-		if len(keys) > 0 {
-			apiKey = keys[0]
-		} else {
-			ErrorResponse(c, http.StatusBadRequest, 3, "No API Key available")
-			return
-		}
+	apiKey, err := getEffectiveKey(uint(keyID))
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, 3, "No valid API Key available")
+		return
 	}
 
 	client := minimax.NewClient(apiKey.Key)
@@ -250,9 +244,9 @@ func UploadTextFile(c *gin.Context) {
 	keyIDStr := c.PostForm("key_id")
 	keyID, _ := strconv.Atoi(keyIDStr)
 
-	var apiKey model.ApiKey
-	if err := database.DB.First(&apiKey, keyID).Error; err != nil {
-		ErrorResponse(c, http.StatusBadRequest, 1, "Invalid API Key ID")
+	apiKey, err := getEffectiveKey(uint(keyID))
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, 1, "Invalid API Key or No Default Key")
 		return
 	}
 

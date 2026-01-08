@@ -31,9 +31,9 @@ func SyncVoices(c *gin.Context) {
 	keyIDStr := c.Query("key_id")
 	keyID, _ := strconv.Atoi(keyIDStr)
 
-	var apiKey model.ApiKey
-	if err := database.DB.First(&apiKey, keyID).Error; err != nil {
-		ErrorResponse(c, http.StatusBadRequest, 2, "Invalid API Key ID")
+	apiKey, err := getEffectiveKey(uint(keyID))
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, 2, "Invalid API Key or No Default Key")
 		return
 	}
 
@@ -105,15 +105,15 @@ func CloneVoice(c *gin.Context) {
 	volumeNorm := c.PostForm("volume_normalization") == "true"
 	watermark := c.PostForm("watermark") == "true"
 
-	if name == "" || keyIDStr == "" {
-		ErrorResponse(c, http.StatusBadRequest, 2, "name and key_id are required")
+	if name == "" {
+		ErrorResponse(c, http.StatusBadRequest, 2, "name is required")
 		return
 	}
 
 	keyID, _ := strconv.Atoi(keyIDStr)
-	var apiKey model.ApiKey
-	if err := database.DB.First(&apiKey, keyID).Error; err != nil {
-		ErrorResponse(c, http.StatusBadRequest, 3, "Invalid API Key ID")
+	apiKey, err := getEffectiveKey(uint(keyID))
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, 3, "Invalid API Key or No Default Key")
 		return
 	}
 
@@ -240,7 +240,7 @@ func downloadAudioFromURL(url, filepath string) error {
 type DesignVoiceRequest struct {
 	Prompt      string `json:"prompt" binding:"required"`
 	PreviewText string `json:"preview_text" binding:"required"`
-	KeyID       uint   `json:"key_id" binding:"required"`
+	KeyID       uint   `json:"key_id"`
 	Name        string `json:"name"`
 	Watermark   bool   `json:"watermark"`
 }
@@ -252,9 +252,9 @@ func DesignVoice(c *gin.Context) {
 		return
 	}
 
-	var apiKey model.ApiKey
-	if err := database.DB.First(&apiKey, req.KeyID).Error; err != nil {
-		ErrorResponse(c, http.StatusBadRequest, 2, "Invalid API Key ID")
+	apiKey, err := getEffectiveKey(req.KeyID)
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, 2, "Invalid API Key or No Default Key")
 		return
 	}
 
@@ -315,10 +315,10 @@ func DeleteVoice(c *gin.Context) {
 	}
 
 	// Attempt remote delete if key_id provided and voice is remote type
-	if keyIDStr != "" && (voice.Type == "cloned" || voice.Type == "generated") {
+	if voice.Type == "cloned" || voice.Type == "generated" {
 		keyID, _ := strconv.Atoi(keyIDStr)
-		var apiKey model.ApiKey
-		if err := database.DB.First(&apiKey, keyID).Error; err == nil {
+		apiKey, err := getEffectiveKey(uint(keyID))
+		if err == nil {
 			client := minimax.NewClient(apiKey.Key)
 			mapping := map[string]string{
 				"cloned":    "voice_cloning",

@@ -1,13 +1,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
-import { Trash2, Plus, Key as KeyIcon } from 'lucide-vue-next'
+import { Trash2, Plus, Key as KeyIcon, Star } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
 const keys = ref([])
 const newKey = ref('')
+const newRemark = ref('')
 const loading = ref(false)
 
 const api = axios.create({
@@ -25,15 +26,31 @@ const fetchKeys = async () => {
 
 const addKey = async () => {
   if (!newKey.value) return
+  if (newRemark.value.length > 100) return 
+  
   loading.value = true
   try {
-    await api.post('/keys', { key: newKey.value, platform: 'minimax' })
+    await api.post('/keys', { 
+      key: newKey.value, 
+      platform: 'minimax',
+      remark: newRemark.value
+    })
     newKey.value = ''
+    newRemark.value = ''
     fetchKeys()
   } catch (e) {
     alert(t('keys.alertAddFail'))
   } finally {
     loading.value = false
+  }
+}
+
+const setDefault = async (id) => {
+  try {
+    await api.put(`/keys/${id}/default`)
+    fetchKeys()
+  } catch (e) {
+    alert(t('keys.alertSetDefaultFail'))
   }
 }
 
@@ -58,16 +75,25 @@ onMounted(fetchKeys)
     </header>
 
     <div class="card add-key-card">
-      <div class="input-group">
+      <div class="input-stack">
         <input 
           v-model="newKey" 
           type="text" 
           :placeholder="t('keys.placeholder')" 
           class="key-input"
         />
-        <button @click="addKey" :disabled="loading" class="btn btn-primary">
-          <Plus size="18" /> {{ t('keys.add') }}
-        </button>
+        <div class="input-row">
+          <input 
+            v-model="newRemark" 
+            type="text" 
+            :placeholder="t('keys.placeholderRemark')" 
+            class="remark-input"
+            maxlength="100"
+          />
+          <button @click="addKey" :disabled="loading" class="btn btn-primary">
+            <Plus size="18" /> {{ t('keys.add') }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -76,13 +102,26 @@ onMounted(fetchKeys)
         <div class="key-info">
           <KeyIcon class="icon" />
           <div class="details">
-            <span class="platform">{{ key.platform }}</span>
+            <div class="key-meta">
+              <span class="platform">{{ key.platform }}</span>
+              <span v-if="key.remark" class="remark-text">{{ key.remark }}</span>
+            </div>
             <code class="key-value">{{ key.key.substring(0, 8) }}...{{ key.key.substring(key.key.length - 4) }}</code>
           </div>
         </div>
-        <button @click="deleteKey(key.id)" class="btn-icon delete">
-          <Trash2 size="18" />
-        </button>
+        
+        <div class="actions">
+          <span v-if="key.is_default" class="badge-default">
+            <Star size="14" fill="currentColor" /> {{ t('keys.default') }}
+          </span>
+          <button v-else @click="setDefault(key.id)" class="btn-sm btn-outline">
+            {{ t('keys.setDefault') }}
+          </button>
+          
+          <button @click="deleteKey(key.id)" class="btn-icon delete">
+            <Trash2 size="18" />
+          </button>
+        </div>
       </div>
       
       <div v-if="keys.length === 0" class="empty-state">
@@ -105,13 +144,23 @@ onMounted(fetchKeys)
   margin-bottom: var(--space-6);
 }
 
-.input-group {
+.input-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.input-row {
   display: flex;
   gap: var(--space-3);
 }
 
-.key-input {
+.key-input, .remark-input {
   flex: 1;
+}
+
+.remark-input {
+  flex: 2; 
 }
 
 .keys-list {
@@ -140,13 +189,28 @@ onMounted(fetchKeys)
 .details {
   display: flex;
   flex-direction: column;
+  gap: 4px;
+}
+
+.key-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .platform {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   color: var(--text-secondary);
   text-transform: uppercase;
   font-weight: 600;
+  background: var(--bg-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.remark-text {
+  font-size: 0.875rem;
+  color: var(--text-primary);
 }
 
 .key-value {
@@ -154,6 +218,45 @@ onMounted(fetchKeys)
   padding: 2px 6px;
   border-radius: 4px;
   font-family: monospace;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  width: fit-content;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.badge-default {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.1);
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.btn-outline:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
 }
 
 .btn-icon {

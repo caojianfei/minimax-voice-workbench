@@ -23,6 +23,7 @@ func SetupRouter(r *gin.Engine) {
 		api.GET("/keys", ListKeys)
 		api.POST("/keys", AddKey)
 		api.DELETE("/keys/:id", DeleteKey)
+		api.PUT("/keys/:id/default", SetDefaultKey)
 
 		// Voices
 		api.GET("/voices", ListVoices)
