@@ -11,6 +11,11 @@ const routes = [
     component: () => import('../views/Workbench.vue')
   },
   {
+    path: '/audio-management',
+    name: 'AudioManagement',
+    component: () => import('../views/AudioManagement.vue')
+  },
+  {
     path: '/voices',
     name: 'Voices',
     component: () => import('../views/Voices.vue')

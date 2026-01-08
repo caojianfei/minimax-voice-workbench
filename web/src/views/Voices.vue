@@ -238,10 +238,8 @@ onMounted(fetchData)
               <span class="voice-id">{{ voice.voice_id }}</span>
               <span class="badge badge-system">{{ voice.type }}</span>
             </div>
+            <!-- System voices cannot be deleted -->
             <div class="actions">
-              <button @click="deleteVoice(voice)" class="btn-icon delete">
-                <Trash2 size="18" />
-              </button>
             </div>
           </div>
         </div>

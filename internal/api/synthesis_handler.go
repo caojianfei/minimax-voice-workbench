@@ -17,7 +17,31 @@ import (
 
 func ListSynthesisTasks(c *gin.Context) {
 	var tasks []model.SynthesisTask
-	if err := database.DB.Order("created_at desc").Find(&tasks).Error; err != nil {
+	query := database.DB.Model(&model.SynthesisTask{})
+
+	// Filters
+	if text := c.Query("text"); text != "" {
+		query = query.Where("text LIKE ?", "%"+text+"%")
+	}
+	if status := c.Query("status"); status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if voiceID := c.Query("voice_id"); voiceID != "" {
+		query = query.Where("voice_id = ?", voiceID)
+	}
+	if startDate := c.Query("start_date"); startDate != "" {
+		if t, err := time.Parse("2006-01-02", startDate); err == nil {
+			query = query.Where("created_at >= ?", t)
+		}
+	}
+	if endDate := c.Query("end_date"); endDate != "" {
+		if t, err := time.Parse("2006-01-02", endDate); err == nil {
+			// Add 24h to include the end date fully
+			query = query.Where("created_at < ?", t.Add(24*time.Hour))
+		}
+	}
+
+	if err := query.Order("created_at desc").Find(&tasks).Error; err != nil {
 		ErrorResponse(c, http.StatusInternalServerError, 1, "Failed to fetch tasks")
 		return
 	}

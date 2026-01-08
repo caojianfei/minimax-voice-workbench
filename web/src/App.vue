@@ -1,6 +1,6 @@
 <script setup>
 import { RouterLink, RouterView, useRoute } from 'vue-router'
-import { Mic, Key, Disc, Activity, Languages } from 'lucide-vue-next'
+import { Mic, Key, Disc, Activity, Languages, Library } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 const route = useRoute()
@@ -8,6 +8,7 @@ const { t, locale } = useI18n()
 
 const navItems = [
   { key: 'workbench', path: '/workbench', icon: Mic },
+  { key: 'audioManagement', path: '/audio-management', icon: Library },
   { key: 'voices', path: '/voices', icon: Disc },
   { key: 'keys', path: '/keys', icon: Key },
 ]

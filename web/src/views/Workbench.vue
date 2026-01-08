@@ -196,7 +196,7 @@ const generate = async () => {
   loading.value = true
   try {
     const res = await api.post('/synthesis', payload)
-    tasks.value.unshift(res.data.data) // Add to top
+    alert(t('workbench.statusSuccess') + ' - Task ID: ' + res.data.data.id)
   } catch (e) {
     alert(t('workbench.alertGenFail') + ': ' + (e.response?.data?.message || e.message))
   } finally {
@@ -204,39 +204,7 @@ const generate = async () => {
   }
 }
 
-const deleteTask = async (id) => {
-  try {
-    await api.delete(`/synthesis/${id}`)
-    tasks.value = tasks.value.filter(t => t.id !== id)
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-// Polling for async tasks
-const startPolling = () => {
-  if (pollInterval) clearInterval(pollInterval)
-  pollInterval = setInterval(async () => {
-    // Check pending tasks
-    const pendingTasks = tasks.value.filter(t => t.status !== 'success' && t.status !== 'failed')
-    for (const task of pendingTasks) {
-       if (task.task_id) {
-           try {
-             const res = await api.get(`/synthesis/${task.id}/status`) 
-             const updated = res.data.data
-             const idx = tasks.value.findIndex(t => t.id === updated.id)
-             if (idx !== -1) tasks.value[idx] = updated
-           } catch(e) {}
-       }
-    }
-  }, 5000)
-}
-
 onMounted(init)
-
-onUnmounted(() => {
-  if (pollInterval) clearInterval(pollInterval)
-})
 </script>
 
 <template>
@@ -498,42 +466,6 @@ onUnmounted(() => {
           </button>
         </div>
       </div>
-
-      <!-- Right Panel: History -->
-      <div class="history-panel card">
-        <header class="panel-header">
-          <h2>{{ t('workbench.historyTitle') }}</h2>
-        </header>
-        <div class="task-list">
-          <div v-for="task in tasks" :key="task.id" class="task-card">
-            <div class="task-header">
-              <span class="task-id">#{{ task.id }}</span>
-              <span class="status-badge" :class="task.status">
-                 {{ t('workbench.status' + (task.status.charAt(0).toUpperCase() + task.status.slice(1))) || task.status }}
-              </span>
-            </div>
-            <div class="task-body">
-              <p class="task-text">{{ task.text.substring(0, 100) }}{{ task.text.length > 100 ? '...' : '' }}</p>
-              <div class="task-meta">
-                <span>{{ task.voice_id }}</span>
-                <span>{{ new Date(task.created_at).toLocaleString() }}</span>
-              </div>
-              <div v-if="task.error" class="task-error">{{ task.error }}</div>
-            </div>
-            <div class="task-actions" v-if="task.status === 'success'">
-              <audio controls :src="task.output" class="audio-player"></audio>
-              <a :href="task.output" download class="btn-icon">
-                <Download size="18" />
-              </a>
-            </div>
-             <div class="task-actions" v-if="task.status !== 'processing'">
-                <button @click="deleteTask(task.id)" class="btn-icon delete">
-                   <Trash2 size="18" />
-                </button>
-             </div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -542,12 +474,16 @@ onUnmounted(() => {
 .page-workbench {
   height: calc(100vh - 80px); /* Adjust based on navbar height */
   overflow: hidden;
+  display: flex;
+  justify-content: center;
 }
 
 .split-view {
   display: flex;
-  gap: var(--space-6);
   height: 100%;
+  width: 100%;
+  max-width: 800px;
+  justify-content: center;
 }
 
 .config-panel {
@@ -556,14 +492,7 @@ onUnmounted(() => {
   flex-direction: column;
   overflow-y: auto;
   min-width: 400px;
-  max-width: 500px;
-}
-
-.history-panel {
-  flex: 2;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
+  max-width: 800px;
 }
 
 .form-container {

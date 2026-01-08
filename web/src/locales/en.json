@@ -1,8 +1,38 @@
 {
     "nav": {
         "workbench": "Workbench",
+        "audioManagement": "Audio Management",
         "voices": "Voice Library",
         "keys": "API Keys"
+    },
+    "audioManagement": {
+        "title": "Audio Management",
+        "filters": {
+            "text": "Text Content",
+            "status": "Status",
+            "voice": "Voice",
+            "date": "Date Range",
+            "startDate": "Start Date",
+            "endDate": "End Date",
+            "search": "Search",
+            "reset": "Reset",
+            "allStatus": "All Status",
+            "allVoices": "All Voices"
+        },
+        "columns": {
+            "id": "ID",
+            "content": "Content",
+            "voice": "Voice",
+            "status": "Status",
+            "createdAt": "Created At",
+            "actions": "Actions"
+        },
+        "status": {
+            "success": "Success",
+            "failed": "Failed",
+            "processing": "Processing"
+        },
+        "deleteConfirm": "Are you sure you want to delete this record?"
     },
     "keys": {
         "title": "Key Management",

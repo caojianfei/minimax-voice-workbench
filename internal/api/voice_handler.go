@@ -314,6 +314,12 @@ func DeleteVoice(c *gin.Context) {
 		return
 	}
 
+	// Prevent deleting system voices
+	if voice.Type == "system" {
+		ErrorResponse(c, http.StatusForbidden, 2, "Cannot delete system voices")
+		return
+	}
+
 	// Attempt remote delete if key_id provided and voice is remote type
 	if voice.Type == "cloned" || voice.Type == "generated" {
 		keyID, _ := strconv.Atoi(keyIDStr)
