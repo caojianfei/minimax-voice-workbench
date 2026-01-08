@@ -96,6 +96,7 @@
         "btnUploadFile": "Upload File",
         "btnUploading": "Uploading...",
         "title": "Minimax Voice Workbench",
+        "subtitle": "Create high-quality speech with Minimax models",
         "sectionCommon": "Common Settings",
         "sectionAdvanced": "Advanced Settings",
         "inputType": {

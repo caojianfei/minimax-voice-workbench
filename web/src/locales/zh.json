@@ -96,6 +96,7 @@
         "btnUploadFile": "上传文件",
         "btnUploading": "上传中...",
         "title": "Minimax 语音合成工作台",
+        "subtitle": "使用 Minimax 模型生成高质量语音",
         "sectionBasic": "基础配置",
         "sectionInput": "文本输入",
         "sectionParameters": "参数调节",

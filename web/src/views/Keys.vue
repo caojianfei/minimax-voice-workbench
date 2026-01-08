@@ -68,7 +68,7 @@ onMounted(fetchKeys)
 </script>
 
 <template>
-  <div class="page text-white">
+  <div class="page">
     <header class="header">
       <h1>{{ t('keys.title') }}</h1>
       <p class="subtitle">{{ t('keys.subtitle') }}</p>
@@ -80,14 +80,14 @@ onMounted(fetchKeys)
           v-model="newKey" 
           type="text" 
           :placeholder="t('keys.placeholder')" 
-          class="key-input"
+          class="custom-input"
         />
         <div class="input-row">
           <input 
             v-model="newRemark" 
             type="text" 
             :placeholder="t('keys.placeholderRemark')" 
-            class="remark-input"
+            class="custom-input flex-2"
             maxlength="100"
           />
           <button @click="addKey" :disabled="loading" class="btn btn-primary">
@@ -132,48 +132,74 @@ onMounted(fetchKeys)
 </template>
 
 <style scoped>
+.page {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
 .header {
   margin-bottom: var(--space-6);
 }
 
 .subtitle {
   color: var(--text-secondary);
+  margin-top: var(--space-2);
 }
 
 .add-key-card {
   margin-bottom: var(--space-6);
+  padding: var(--space-6);
 }
 
 .input-stack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .input-row {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
-.key-input, .remark-input {
-  flex: 1;
+.custom-input {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
 }
 
-.remark-input {
-  flex: 2; 
+.custom-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-bg);
+}
+
+.flex-2 {
+  flex: 2;
 }
 
 .keys-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .key-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  transition: all var(--transition-fast);
+}
+
+.key-item:hover {
+  border-color: var(--primary-light);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .key-info {

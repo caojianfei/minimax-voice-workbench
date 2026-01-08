@@ -648,6 +648,8 @@ onMounted(fetchData)
   display: flex;
   flex-direction: column;
   padding: 0;
+  box-shadow: var(--shadow-2xl);
+  border: 1px solid var(--border-color);
 }
 
 .modal-header {
