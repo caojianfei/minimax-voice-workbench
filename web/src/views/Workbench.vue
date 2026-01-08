@@ -1,8 +1,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import axios from 'axios'
-import { Play, Download, Trash2, Cpu, ChevronDown, ChevronUp, Info, Key, Library } from 'lucide-vue-next'
+import { Play, Download, Trash2, Cpu, ChevronDown, ChevronUp, Info, Key, Library, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import VoiceSelector from '../components/VoiceSelector.vue'
 
 const { t } = useI18n()
 
@@ -11,6 +12,8 @@ const voices = ref([])
 const keys = ref([])
 const loading = ref(false)
 const showAdvanced = ref(false)
+const showVoiceSelector = ref(false)
+
 const inputType = ref('text') // 'text' or 'file'
 
 const persistKey = 'minimax_voice_workbench_form_v1'
@@ -164,6 +167,33 @@ const init = async () => {
   }
 }
 
+const startPolling = () => {
+  if (pollInterval) clearInterval(pollInterval)
+  pollInterval = setInterval(async () => {
+    try {
+      const res = await api.get('/synthesis')
+      tasks.value = res.data.data
+    } catch (e) {
+      console.error('Polling failed', e)
+    }
+  }, 5000)
+}
+
+const closeVoiceSelector = () => {
+  showVoiceSelector.value = false
+}
+
+const onWindowKeydown = (e) => {
+  if (e.key === 'Escape' && showVoiceSelector.value) {
+    closeVoiceSelector()
+  }
+}
+
+onUnmounted(() => {
+  if (pollInterval) clearInterval(pollInterval)
+  window.removeEventListener('keydown', onWindowKeydown)
+})
+
 const defaultKey = computed(() => {
   return keys.value.find(k => k.is_default) || keys.value[0]
 })
@@ -316,6 +346,7 @@ watch(
 onMounted(() => {
   loadPersistedForm()
   init()
+  window.addEventListener('keydown', onWindowKeydown)
 })
 </script>
 
@@ -354,17 +385,23 @@ onMounted(() => {
               </div>
             </div>
 
-            <div class="form-group">
+            <div class="form-group relative">
               <label class="label-with-tip">
                 {{ t('workbench.labelVoice') }}
                 <div class="tooltip" :data-tip="t('workbench.tips.voiceId')" tabindex="0"><Info size="14"/></div>
               </label>
-              <div class="select-wrapper">
-                <select v-model="form.voice_id" class="custom-select">
-                  <option v-for="v in voices" :key="v.voice_id" :value="v.voice_id">
-                    {{ v.name }}
-                  </option>
-                </select>
+              
+              <!-- Custom Voice Selector Trigger -->
+              <div 
+                class="custom-select flex items-center justify-between cursor-pointer"
+                @click="showVoiceSelector = true"
+                role="button"
+                tabindex="0"
+                @keydown.enter.prevent="showVoiceSelector = true"
+                @keydown.space.prevent="showVoiceSelector = true"
+              >
+                <span class="truncate">{{ voices.find(v => v.voice_id === form.voice_id)?.name || 'Select Voice' }}</span>
+                <ChevronDown size="16" class="text-gray-500" />
               </div>
             </div>
           </div>
@@ -641,6 +678,27 @@ onMounted(() => {
       </main>
     </div>
   </div>
+
+  <Teleport to="body">
+    <div v-if="showVoiceSelector" class="voice-picker-overlay" @click.self="closeVoiceSelector">
+      <div class="voice-picker-modal" role="dialog" aria-modal="true">
+        <header class="voice-picker-header">
+          <div class="voice-picker-title">音色选择</div>
+          <button class="voice-picker-close" type="button" @click="closeVoiceSelector" aria-label="Close">
+            <X size="16" />
+          </button>
+        </header>
+        <div class="voice-picker-body">
+          <VoiceSelector
+            v-model="form.voice_id"
+            :voices="voices"
+            height="100%"
+            @select="closeVoiceSelector"
+          />
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -898,6 +956,70 @@ onMounted(() => {
   gap: var(--space-3);
 }
 
+.voice-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+}
+
+.voice-picker-modal {
+  width: min(980px, calc(100vw - 96px));
+  height: min(680px, calc(100vh - 120px));
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.voice-picker-header {
+  padding: var(--space-5) var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
+
+.voice-picker-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.voice-picker-close {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.voice-picker-close:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+}
+
+.voice-picker-body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-4) var(--space-6) var(--space-6);
+}
+
 .small-label {
   font-size: 0.75rem;
   margin-bottom: var(--space-1);
@@ -1034,6 +1156,26 @@ onMounted(() => {
 @media (max-width: 480px) {
   .grid-2 {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .voice-picker-overlay {
+    padding: 16px;
+  }
+
+  .voice-picker-modal {
+    width: calc(100vw - 32px);
+    height: calc(100vh - 32px);
+    border-radius: var(--radius-lg);
+  }
+
+  .voice-picker-header {
+    padding: var(--space-4) var(--space-4);
+  }
+
+  .voice-picker-body {
+    padding: var(--space-3) var(--space-3) var(--space-4);
   }
 }
 

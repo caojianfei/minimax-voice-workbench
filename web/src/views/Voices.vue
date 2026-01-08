@@ -1,10 +1,12 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import axios from 'axios'
-import { Plus, Trash2, Play, Mic, Cloud, Palette, Monitor, Copy, Wand2, Pause } from 'lucide-vue-next'
+import { Plus, Trash2, Play, Mic, Cloud, Palette, Monitor, Copy, Wand2, Pause, Heart, Star, Search, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import { useFavorites } from '../composables/useFavorites'
 
 const { t } = useI18n()
+const { toggleFavorite, isFavorite } = useFavorites()
 
 const voices = ref([])
 const keys = ref([])
@@ -15,11 +17,23 @@ const currentTab = ref('system')
 const playingAudio = ref(null)
 const sampleFileInput = ref(null)
 const promptFileInput = ref(null)
+const searchQuery = ref('')
+const debouncedQuery = ref('')
+
+// Debounce Search
+let debounceTimer = null
+watch(searchQuery, (newVal) => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    debouncedQuery.value = newVal
+  }, 300)
+})
 
 const tabs = computed(() => [
   { key: 'system', label: '系统音色', icon: Monitor },
   { key: 'cloned', label: '复刻音色', icon: Copy },
   { key: 'generated', label: '设计音色', icon: Wand2 },
+  { key: 'favorites', label: '我的收藏', icon: Heart },
 ])
 
 // Speech model options
@@ -52,17 +66,33 @@ const api = axios.create({
   baseURL: import.meta.env.DEV ? 'http://localhost:8080/api' : '/api'
 })
 
+// Highlight matching text
+const escapeRegExp = (string) => {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+const highlightText = (text) => {
+  if (!debouncedQuery.value) return text
+  const safeQuery = escapeRegExp(debouncedQuery.value)
+  const regex = new RegExp(`(${safeQuery})`, 'gi')
+  return text.replace(regex, '<span class="highlight">$1</span>')
+}
+
 // Categorize voices by type
 const categorizedVoices = computed(() => {
   const categories = {
     system: [],
     cloned: [],
-    generated: []
+    generated: [],
+    favorites: []
   }
   
   voices.value.forEach(voice => {
     if (categories[voice.type]) {
       categories[voice.type].push(voice)
+    }
+    if (isFavorite(voice.voice_id)) {
+      categories.favorites.push(voice)
     }
   })
   
@@ -70,7 +100,14 @@ const categorizedVoices = computed(() => {
 })
 
 const currentVoices = computed(() => {
-  return categorizedVoices.value[currentTab.value] || []
+  let list = categorizedVoices.value[currentTab.value] || []
+  
+  if (debouncedQuery.value) {
+    const q = debouncedQuery.value.toLowerCase()
+    list = list.filter(v => v.name.toLowerCase().includes(q))
+  }
+  
+  return list
 })
 
 const defaultKey = computed(() => {
@@ -278,6 +315,20 @@ onMounted(fetchData)
             <span class="badge badge-neutral ml-2">{{ categorizedVoices[tab.key]?.length || 0 }}</span>
           </button>
         </nav>
+        
+        <!-- Search Bar -->
+        <div class="search-bar">
+          <Search class="search-icon" size="16" />
+          <input 
+            v-model="searchQuery" 
+            type="text" 
+            :placeholder="t('voices.searchPlaceholder') || 'Search voices...'"
+            class="search-input"
+          />
+          <button v-if="searchQuery" @click="searchQuery = ''" class="clear-btn">
+            <X size="16" />
+          </button>
+        </div>
       </div>
     </header>
 
@@ -290,20 +341,30 @@ onMounted(fetchData)
               {{ voice.name.charAt(0).toUpperCase() }}
             </div>
             <div class="voice-info">
-              <h3>{{ voice.name }}</h3>
+              <h3 v-html="highlightText(voice.name)"></h3>
               <div class="voice-meta">
                 <span class="voice-id" :title="voice.voice_id">{{ voice.voice_id.substring(0, 12) }}...</span>
               </div>
             </div>
             
-            <button 
-              v-if="voice.demo_audio || voice.preview"
-              class="play-btn" 
-              :class="{ playing: playingAudio === voice.voice_id }"
-              @click="toggleAudio(voice)"
-            >
-              <component :is="playingAudio === voice.voice_id ? Pause : Play" size="20" fill="currentColor" />
-            </button>
+            <div class="voice-actions-top">
+              <button 
+                class="favorite-btn" 
+                :class="{ active: isFavorite(voice.voice_id) }"
+                @click.stop="toggleFavorite(voice.voice_id)"
+              >
+                <Star size="18" :fill="isFavorite(voice.voice_id) ? 'currentColor' : 'none'" />
+              </button>
+
+              <button 
+                v-if="voice.demo_audio || voice.preview"
+                class="play-btn" 
+                :class="{ playing: playingAudio === voice.voice_id }"
+                @click="toggleAudio(voice)"
+              >
+                <component :is="playingAudio === voice.voice_id ? Pause : Play" size="20" fill="currentColor" />
+              </button>
+            </div>
             <audio 
               :id="'audio-' + voice.voice_id" 
               :src="voice.demo_audio || voice.preview" 
@@ -327,10 +388,11 @@ onMounted(fetchData)
       
       <div v-else class="empty-state">
         <div class="empty-icon">
-          <Mic size="48" />
+          <Search v-if="searchQuery" size="48" />
+          <Mic v-else size="48" />
         </div>
-        <h3>No voices found</h3>
-        <p>Create a new voice or sync from server</p>
+        <h3>{{ searchQuery ? 'No voices found' : 'No voices in this category' }}</h3>
+        <p>{{ searchQuery ? 'Try a different search term' : 'Create a new voice or sync from server' }}</p>
       </div>
     </div>
 
@@ -505,6 +567,97 @@ onMounted(fetchData)
 
 .tabs-wrapper {
   margin-top: var(--space-2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 240px;
+  margin-right: 4px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 30px 8px 32px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  height: 36px;
+}
+
+.search-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-light);
+  outline: none;
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.clear-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: 50%;
+}
+
+.clear-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.voice-actions-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.favorite-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  border: none;
+  cursor: pointer;
+}
+
+.favorite-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.favorite-btn.active {
+  color: #fbbf24; /* Amber-400 */
+}
+
+/* Ensure highlight class works */
+:deep(.highlight) {
+  background-color: rgba(253, 224, 71, 0.4); /* Yellow-200 with opacity */
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
 }
 
 .tabs-nav {

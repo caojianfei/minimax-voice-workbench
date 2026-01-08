@@ -94,7 +94,8 @@
         "alertDeleteFail": "Failed to delete voice",
         "syncSuccess": "Sync complete. Added {count} voices.",
         "currentKey": "Current Key",
-        "noDefaultKey": "No Default Key Set"
+        "noDefaultKey": "No Default Key Set",
+        "searchPlaceholder": "Search voices..."
     },
     "workbench": {
         "btnUploadFile": "Upload File",

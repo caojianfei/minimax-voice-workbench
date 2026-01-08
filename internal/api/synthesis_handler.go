@@ -63,7 +63,7 @@ type GenerateSpeechRequest struct {
 	Bitrate           int64          `json:"bitrate"`
 	Format            string         `json:"format"`
 	Channel           int64          `json:"channel"`
-	Watermark         bool           `json:"watermark"`
+	AigcWatermark     bool           `json:"aigc_watermark"`
 	VoiceModify       map[string]int `json:"voice_modify"` // pitch, intensity, timbre
 	SoundEffects      string         `json:"sound_effects"`
 	PronunciationDict map[string]any `json:"pronunciation_dict"`
@@ -87,7 +87,8 @@ func GenerateSpeech(c *gin.Context) {
 		return
 	}
 
-	client := minimax.NewClient(apiKey.Key)
+	// client := minimax.NewClient(apiKey.Key)
+	_ = minimax.NewClient(apiKey.Key)
 
 	// Voice Modify
 	var voiceModify minimax.VoiceModify
@@ -132,31 +133,32 @@ func GenerateSpeech(c *gin.Context) {
 		},
 		AudioSetting:      audioSetting,
 		VoiceModify:       voiceModify,
-		AigcWatermark:     req.Watermark,
+		AigcWatermark:     req.AigcWatermark,
 		PronunciationDict: req.PronunciationDict,
 	}
 
-	resp, err := client.T2AAsync(t2aReq)
-	task := model.SynthesisTask{
-		Text:    req.Text,
-		VoiceID: req.VoiceID,
-		Status:  "processing",
-	}
-	if req.TextFileID > 0 {
-		task.Text = fmt.Sprintf("FileID: %d", req.TextFileID)
-	}
+	// resp, err := client.T2AAsync(t2aReq)
+	// task := model.SynthesisTask{
+	// 	Text:    req.Text,
+	// 	VoiceID: req.VoiceID,
+	// 	Status:  "processing",
+	// }
+	// if req.TextFileID > 0 {
+	// 	task.Text = fmt.Sprintf("FileID: %d", req.TextFileID)
+	// }
 
-	if err != nil {
-		task.Status = "failed"
-		task.Error = err.Error()
-		database.DB.Create(&task)
-		ErrorResponse(c, http.StatusInternalServerError, 4, "Async Submit Failed: "+err.Error())
-		return
-	}
+	// if err != nil {
+	// 	task.Status = "failed"
+	// 	task.Error = err.Error()
+	// 	database.DB.Create(&task)
+	// 	ErrorResponse(c, http.StatusInternalServerError, 4, "Async Submit Failed: "+err.Error())
+	// 	return
+	// }
 
-	task.TaskID = resp.TaskID
-	database.DB.Create(&task)
-	SuccessResponse(c, task)
+	// task.TaskID = resp.TaskID
+	// database.DB.Create(&task)
+	// SuccessResponse(c, task)
+	SuccessResponse(c, t2aReq)
 }
 
 func CheckTaskStatus(c *gin.Context) {
