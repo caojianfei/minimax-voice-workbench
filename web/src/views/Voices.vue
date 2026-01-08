@@ -13,6 +13,8 @@ const modalMode = ref('clone') // 'clone' or 'design'
 const loading = ref(false)
 const currentTab = ref('system')
 const playingAudio = ref(null)
+const sampleFileInput = ref(null)
+const promptFileInput = ref(null)
 
 const tabs = computed(() => [
   { key: 'system', label: '系统音色', icon: Monitor },
@@ -174,6 +176,8 @@ const cleanupModal = () => {
   form.value.noise_reduction = false
   form.value.volume_normalization = false
   form.value.watermark = false
+  if (sampleFileInput.value) sampleFileInput.value.value = ''
+  if (promptFileInput.value) promptFileInput.value.value = ''
   fetchData()
 }
 
@@ -349,23 +353,55 @@ onMounted(fetchData)
           <template v-if="modalMode === 'clone'">
               <div class="form-group">
                 <label>{{ t('voices.labelSample') }}</label>
-                <div class="file-input-wrapper">
-                  <input type="file" @change="handleFileChange" accept="audio/*" />
+                <div class="file-picker">
+                  <input
+                    id="clone-sample-file"
+                    ref="sampleFileInput"
+                    class="file-picker-input"
+                    type="file"
+                    @change="handleFileChange"
+                    accept="audio/*"
+                  />
+                  <label class="file-picker-btn" for="clone-sample-file">{{ t('voices.selectFile') }}</label>
+                  <span class="file-picker-name">{{ form.file?.name || t('voices.noFileSelected') }}</span>
                 </div>
                 <p class="hint">{{ t('voices.hintSample') }}</p>
               </div>
-              
-              <div class="form-group">
-                <label>{{ t('voices.labelPromptFile') }}</label>
-                <div class="file-input-wrapper">
-                   <input type="file" @change="handlePromptFileChange" accept="audio/*" />
+
+              <div class="pair-group">
+                <div class="pair-header">
+                  <div class="pair-title">{{ t('voices.pairPromptTitle') }}</div>
+                  <div class="pair-subtitle">{{ t('voices.pairPromptSubtitle') }}</div>
                 </div>
-                <p class="hint">{{ t('voices.hintPromptFile') }}</p>
-              </div>
-              
-              <div class="form-group">
-                <label>{{ t('voices.labelPromptText') }}</label>
-                <input v-model="form.prompt_text" type="text" :placeholder="t('voices.phPromptText')" />
+
+                <div class="pair-grid">
+                  <div class="form-group">
+                    <label>{{ t('voices.labelPromptFile') }}</label>
+                    <div class="file-picker">
+                      <input
+                        id="clone-prompt-file"
+                        ref="promptFileInput"
+                        class="file-picker-input"
+                        type="file"
+                        @change="handlePromptFileChange"
+                        accept="audio/*"
+                      />
+                      <label class="file-picker-btn" for="clone-prompt-file">{{ t('voices.selectFile') }}</label>
+                      <span class="file-picker-name">{{ form.prompt_file?.name || t('voices.noFileSelected') }}</span>
+                    </div>
+                    <p class="hint">{{ t('voices.hintPromptFile') }}</p>
+                  </div>
+
+                  <div class="form-group">
+                    <label>{{ t('voices.labelPromptText') }}</label>
+                    <textarea
+                      v-model="form.prompt_text"
+                      class="pair-textarea"
+                      :placeholder="t('voices.phPromptText')"
+                      rows="2"
+                    ></textarea>
+                  </div>
+                </div>
               </div>
 
               <div class="form-group">
@@ -383,18 +419,18 @@ onMounted(fetchData)
                 </select>
               </div>
 
-              <div class="checkbox-grid">
-                <label class="checkbox-label">
+              <div class="options-grid">
+                <label class="option-toggle">
                   <input type="checkbox" v-model="form.noise_reduction" />
-                  <span>{{ t('voices.labelNoiseReduction') }}</span>
+                  <span class="option-text">{{ t('voices.labelNoiseReduction') }}</span>
                 </label>
-                <label class="checkbox-label">
+                <label class="option-toggle">
                   <input type="checkbox" v-model="form.volume_normalization" />
-                  <span>{{ t('voices.labelVolumeNorm') }}</span>
+                  <span class="option-text">{{ t('voices.labelVolumeNorm') }}</span>
                 </label>
-                <label class="checkbox-label">
+                <label class="option-toggle">
                   <input type="checkbox" v-model="form.watermark" />
-                  <span>{{ t('voices.labelWatermark') }}</span>
+                  <span class="option-text">{{ t('voices.labelWatermark') }}</span>
                 </label>
               </div>
           </template>
@@ -643,13 +679,129 @@ onMounted(fetchData)
 }
 
 .modal {
-  width: 550px;
+  width: min(550px, calc(100vw - 2 * var(--space-4)));
   max-height: 90vh;
   display: flex;
   flex-direction: column;
   padding: 0;
   box-shadow: var(--shadow-2xl);
   border: 1px solid var(--border-color);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.form-group label {
+  margin-bottom: 0;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+.file-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0.75rem 0.75rem;
+  min-height: 56px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+.file-picker-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.file-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-weight: 600;
+  margin: 0;
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.file-picker-btn:hover {
+  border-color: var(--text-tertiary);
+  background: var(--bg-quaternary);
+}
+
+.file-picker-name {
+  min-width: 0;
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pair-group {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.pair-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pair-title {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pair-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+.pair-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.pair-grid .file-picker {
+  height: 56px;
+  padding: 0.5rem 0.75rem;
+}
+
+.pair-textarea {
+  min-height: 56px;
+  height: 56px;
+  resize: none;
 }
 
 .modal-header {
@@ -688,11 +840,40 @@ onMounted(fetchData)
   background: var(--bg-secondary);
 }
 
-.checkbox-grid {
+.options-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: var(--space-3);
   margin-top: var(--space-2);
+}
+
+.option-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0.75rem 0.875rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.option-toggle:hover {
+  border-color: var(--text-tertiary);
+  background: var(--bg-secondary);
+}
+
+.option-toggle input[type='checkbox'] {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.option-text {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 @keyframes pulse {
@@ -702,6 +883,19 @@ onMounted(fetchData)
 }
 
 @media (max-width: 768px) {
+  .modal-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .modal-footer .btn {
+    width: 100%;
+  }
+
+  .pair-grid {
+    grid-template-columns: 1fr;
+  }
+
   .header-content {
     flex-direction: column;
     gap: var(--space-4);

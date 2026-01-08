@@ -292,6 +292,8 @@ watch(() => route.path, () => {
   min-height: 100vh;
   padding: var(--space-6);
   transition: margin-left var(--transition-normal);
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .content-wrapper {
