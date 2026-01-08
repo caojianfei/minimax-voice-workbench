@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import axios from 'axios'
 import { Play, Download, Trash2, Cpu, ChevronDown, ChevronUp, Info, Key, Library } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -12,6 +12,8 @@ const keys = ref([])
 const loading = ref(false)
 const showAdvanced = ref(false)
 const inputType = ref('text') // 'text' or 'file'
+
+const persistKey = 'minimax_voice_workbench_form_v1'
 
 const form = ref({
   // Common
@@ -27,6 +29,7 @@ const form = ref({
   pitch: 0,
   emotion: '',
   language_boost: 'auto',
+  english_normalization: false,
   
   // Audio Settings
   sample_rate: 32000,
@@ -47,6 +50,28 @@ const form = ref({
   // Extra
   pronunciation_dict_str: ''
 })
+
+const sampleRateOptions = [
+  { value: 8000, label: '8k' },
+  { value: 16000, label: '16k' },
+  { value: 22050, label: '22.05k' },
+  { value: 24000, label: '24k' },
+  { value: 32000, label: '32k' },
+  { value: 44100, label: '44.1k' },
+]
+
+const bitrateOptions = [
+  { value: 32000, label: '32k' },
+  { value: 64000, label: '64k' },
+  { value: 128000, label: '128k' },
+  { value: 256000, label: '256k' },
+]
+
+const formatOptions = [
+  { value: 'mp3', label: 'mp3' },
+  { value: 'pcm', label: 'pcm' },
+  { value: 'flac', label: 'flac' },
+]
 
 const modelOptions = [
   { value: 'speech-2.6-hd', label: 'Speech 2.6 HD' },
@@ -127,7 +152,10 @@ const init = async () => {
     voices.value = vRes.data.data
     keys.value = kRes.data.data
 
-    if (voices.value.length > 0) form.value.voice_id = voices.value[0].voice_id
+    if (voices.value.length > 0) {
+      const ok = voices.value.some(v => v.voice_id === form.value.voice_id)
+      if (!ok) form.value.voice_id = voices.value[0].voice_id
+    }
     // if (keys.value.length > 0) form.value.key_id = keys.value[0].id
     
     startPolling()
@@ -139,6 +167,55 @@ const init = async () => {
 const defaultKey = computed(() => {
   return keys.value.find(k => k.is_default) || keys.value[0]
 })
+
+const loadPersistedForm = () => {
+  try {
+    const raw = localStorage.getItem(persistKey)
+    if (!raw) return
+    const saved = JSON.parse(raw)
+    if (!saved || typeof saved !== 'object') return
+    form.value = {
+      ...form.value,
+      ...saved,
+      voice_modify: {
+        ...form.value.voice_modify,
+        ...(saved.voice_modify || {})
+      }
+    }
+    const sampleRates = new Set(sampleRateOptions.map(o => o.value))
+    const bitrates = new Set(bitrateOptions.map(o => o.value))
+    const formats = new Set(formatOptions.map(o => o.value))
+    if (!sampleRates.has(form.value.sample_rate)) form.value.sample_rate = 32000
+    if (!bitrates.has(form.value.bitrate)) form.value.bitrate = 128000
+    if (!formats.has(form.value.format)) form.value.format = 'mp3'
+    if (form.value.channel !== 1 && form.value.channel !== 2) form.value.channel = 1
+    form.value.english_normalization = Boolean(form.value.english_normalization)
+  } catch {}
+}
+
+const persistForm = (v) => {
+  const payload = {
+    model: v.model,
+    voice_id: v.voice_id,
+    speed: v.speed,
+    vol: v.vol,
+    pitch: v.pitch,
+    emotion: v.emotion,
+    language_boost: v.language_boost,
+    english_normalization: v.english_normalization,
+    sample_rate: v.sample_rate,
+    bitrate: v.bitrate,
+    format: v.format,
+    channel: v.channel,
+    voice_modify: v.voice_modify,
+    sound_effects: v.sound_effects,
+    watermark: v.watermark,
+    pronunciation_dict_str: v.pronunciation_dict_str
+  }
+  try {
+    localStorage.setItem(persistKey, JSON.stringify(payload))
+  } catch {}
+}
 
 const generate = async () => {
   // Clear mutually exclusive field based on input type
@@ -197,11 +274,13 @@ const generate = async () => {
       voice_id: form.value.voice_id,
       speed: form.value.speed,
       vol: form.value.vol,
-      pitch: form.value.pitch
+      pitch: form.value.pitch,
+      emotion: form.value.emotion,
+      english_normalization: form.value.english_normalization
     },
     audio_setting: {
       audio_sample_rate: form.value.sample_rate,
-      bitrate: form.value.bitrate,
+      bitrate: form.value.format === 'mp3' ? form.value.bitrate : undefined,
       format: form.value.format,
       channel: form.value.channel
     },
@@ -226,7 +305,18 @@ const generate = async () => {
   }
 }
 
-onMounted(init)
+watch(
+  form,
+  (v) => {
+    persistForm(v)
+  },
+  { deep: true }
+)
+
+onMounted(() => {
+  loadPersistedForm()
+  init()
+})
 </script>
 
 <template>
@@ -255,7 +345,7 @@ onMounted(init)
             <div class="form-group">
               <label class="label-with-tip">
                 {{ t('workbench.labelModel') }}
-                <div class="tooltip" :data-tip="t('workbench.tips.model')"><Info size="14"/></div>
+                <div class="tooltip" :data-tip="t('workbench.tips.model')" tabindex="0"><Info size="14"/></div>
               </label>
               <div class="select-wrapper">
                 <select v-model="form.model" class="custom-select">
@@ -267,7 +357,7 @@ onMounted(init)
             <div class="form-group">
               <label class="label-with-tip">
                 {{ t('workbench.labelVoice') }}
-                <div class="tooltip" :data-tip="t('workbench.tips.voiceId')"><Info size="14"/></div>
+                <div class="tooltip" :data-tip="t('workbench.tips.voiceId')" tabindex="0"><Info size="14"/></div>
               </label>
               <div class="select-wrapper">
                 <select v-model="form.voice_id" class="custom-select">
@@ -338,6 +428,24 @@ onMounted(init)
 
                 <div class="form-group">
                   <div
+                    class="switch-row"
+                    role="switch"
+                    tabindex="0"
+                    :aria-checked="form.english_normalization"
+                    @click="form.english_normalization = !form.english_normalization"
+                    @keydown.space.prevent="form.english_normalization = !form.english_normalization"
+                    @keydown.enter.prevent="form.english_normalization = !form.english_normalization"
+                  >
+                    <span class="switch-label">{{ t('workbench.labelNorm') }}</span>
+                    <div class="switch-row-right">
+                      <div class="tooltip" :data-tip="t('workbench.tips.englishNormalization')" tabindex="0"><Info size="14"/></div>
+                      <div class="switch" :class="{ active: form.english_normalization }"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <div
                     class="checkbox-card compact"
                     role="switch"
                     tabindex="0"
@@ -361,28 +469,44 @@ onMounted(init)
                   <div class="form-group">
                     <label class="small-label">{{ t('workbench.labelSampleRate') }}</label>
                     <select v-model.number="form.sample_rate" class="custom-select sm">
-                      <option :value="32000">32k</option>
-                      <option :value="44100">44.1k</option>
-                      <option :value="24000">24k</option>
+                      <option v-for="opt in sampleRateOptions" :key="opt.value" :value="opt.value">
+                        {{ opt.label }}
+                      </option>
                     </select>
                   </div>
                   <div class="form-group">
                     <label class="small-label">{{ t('workbench.labelBitrate') }}</label>
-                    <select v-model.number="form.bitrate" class="custom-select sm">
-                      <option :value="32000">32k</option>
-                      <option :value="64000">64k</option>
-                      <option :value="128000">128k</option>
+                    <select v-model.number="form.bitrate" class="custom-select sm" :disabled="form.format !== 'mp3'">
+                      <option v-for="opt in bitrateOptions" :key="opt.value" :value="opt.value">
+                        {{ opt.label }}
+                      </option>
                     </select>
                   </div>
-                  <div class="form-group">
-                    <label class="small-label">{{ t('workbench.labelFormat') }}</label>
-                    <select v-model="form.format" class="custom-select sm">
-                      <option value="mp3">MP3</option>
-                      <option value="wav">WAV</option>
-                      <option value="pcm">PCM</option>
-                      <option value="flac">FLAC</option>
-                    </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="small-label">{{ t('workbench.labelFormat') }}</label>
+                  <div class="radio-group">
+                    <label v-for="opt in formatOptions" :key="opt.value" class="radio-option">
+                      <input type="radio" v-model="form.format" :value="opt.value" />
+                      <span>{{ opt.label }}</span>
+                    </label>
                   </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="small-label">{{ t('workbench.labelChannel') }}</label>
+                  <div class="radio-group">
+                    <label class="radio-option">
+                      <input type="radio" v-model.number="form.channel" :value="1" />
+                      <span>1 ({{ t('workbench.options.mono') }})</span>
+                    </label>
+                    <label class="radio-option">
+                      <input type="radio" v-model.number="form.channel" :value="2" />
+                      <span>2 ({{ t('workbench.options.stereo') }})</span>
+                    </label>
+                  </div>
+                  <div class="field-hint">{{ t('workbench.hints.channelDesc') }}</div>
                 </div>
 
                 <div class="separator"></div>
@@ -392,7 +516,7 @@ onMounted(init)
                 <div class="form-group">
                   <label class="label-with-tip">
                      <span>{{ t('workbench.labelPronunciationDict') }}</span>
-                     <div class="tooltip" :data-tip="t('workbench.tips.pronunciationDict')"><Info size="14"/></div>
+                     <div class="tooltip" :data-tip="t('workbench.tips.pronunciationDict')" tabindex="0"><Info size="14"/></div>
                   </label>
                   <textarea 
                      v-model="form.pronunciation_dict_str" 
@@ -588,6 +712,56 @@ onMounted(init)
 .tooltip {
   color: var(--text-tertiary);
   cursor: help;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tooltip::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 10px);
+  transform: translateX(-50%);
+  background: rgba(17, 24, 39, 0.95);
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  padding: 8px 10px;
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  white-space: normal;
+  width: max-content;
+  max-width: min(320px, 80vw);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 10;
+}
+
+.tooltip::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 4px);
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: rgba(17, 24, 39, 0.95);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+
+.tooltip:hover::after,
+.tooltip:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(2px);
+}
+
+.tooltip:hover::before,
+.tooltip:focus-visible::before {
+  opacity: 1;
 }
 
 .slider-group {
@@ -649,6 +823,73 @@ onMounted(init)
   align-items: center;
   gap: var(--space-2);
   cursor: pointer;
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  user-select: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.switch-row:hover {
+  border-color: var(--primary-light);
+  background: var(--bg-secondary);
+}
+
+.switch-label {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.switch-row-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.radio-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.radio-option:hover {
+  border-color: var(--primary-light);
+  background: var(--bg-secondary);
+}
+
+.radio-option input {
+  accent-color: var(--primary);
+}
+
+.field-hint {
+  margin-top: var(--space-2);
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.custom-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .grid-2 {
@@ -787,6 +1028,12 @@ onMounted(init)
 
   .main-textarea {
     min-height: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
   }
 }
 

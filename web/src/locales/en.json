@@ -138,11 +138,15 @@
             "pitch": "Pitch [-12, 12]",
             "emotion": "Control speech emotion",
             "langBoost": "Boost specific language/dialect",
+            "englishNormalization": "Enable English text normalization (improves number reading, adds small latency)",
             "watermark": "Add audio rhythm marker at end",
             "vmPitch": "Range [-100, 100]",
             "vmIntensity": "Range [-100, 100]",
             "vmTimbre": "Range [-100, 100]",
             "pronunciationDict": "Comma separated, e.g. \"word/pron\", \"word2/pron2\""
+        },
+        "hints": {
+            "channelDesc": "1 for mono, 2 for stereo"
         },
         "phPronunciationDict": "e.g. \"word/pron\", \"word2/pron2\"",
         "options": {

@@ -142,11 +142,15 @@
             "pitch": "语调 [-12, 12]",
             "emotion": "控制合成语音的情绪",
             "langBoost": "增强特定语种/方言识别",
+            "englishNormalization": "启用英语文本规范化（可提升数字阅读性能，但会增加少量延迟）",
             "watermark": "音频末尾添加节奏标识",
             "vmPitch": "范围 [-100, 100], 低沉/明亮",
             "vmIntensity": "范围 [-100, 100], 刚劲/轻柔",
             "vmTimbre": "范围 [-100, 100], 浑厚/清脆",
             "pronunciationDict": "多音字纠正，使用逗号分隔，例如：\"重/chong2\", \"长/zhang3\""
+        },
+        "hints": {
+            "channelDesc": "1表示单声道，2表示双声道"
         },
         "phPronunciationDict": "例如：\"燕少飞/(yan4)(shao3)(fei1)\", \"omg/oh my god\"",
         "options": {
