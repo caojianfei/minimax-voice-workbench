@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
-import { Plus, Trash2, Play, Mic, Cloud, Palette } from 'lucide-vue-next'
+import { Plus, Trash2, Play, Mic, Cloud, Palette, Monitor, Copy, Wand2, Pause } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -11,6 +11,14 @@ const keys = ref([])
 const showModal = ref(false)
 const modalMode = ref('clone') // 'clone' or 'design'
 const loading = ref(false)
+const currentTab = ref('system')
+const playingAudio = ref(null)
+
+const tabs = computed(() => [
+  { key: 'system', label: '系统音色', icon: Monitor },
+  { key: 'cloned', label: '复刻音色', icon: Copy },
+  { key: 'generated', label: '设计音色', icon: Wand2 },
+])
 
 // Speech model options
 const modelOptions = [
@@ -59,6 +67,10 @@ const categorizedVoices = computed(() => {
   return categories
 })
 
+const currentVoices = computed(() => {
+  return categorizedVoices.value[currentTab.value] || []
+})
+
 const defaultKey = computed(() => {
   return keys.value.find(k => k.is_default) || keys.value[0]
 })
@@ -71,10 +83,6 @@ const fetchData = async () => {
     ])
     voices.value = vRes.data.data
     keys.value = kRes.data.data
-    
-    if (keys.value.length > 0 && !form.value.key_id) {
-      // form.value.key_id = keys.value[0].id
-    }
   } catch (e) {
     console.error(e)
   }
@@ -193,183 +201,218 @@ const syncVoices = async () => {
   }
 }
 
+const toggleAudio = (voice) => {
+  const audioId = 'audio-' + voice.voice_id
+  const audioEl = document.getElementById(audioId)
+  
+  if (!audioEl) return
+
+  if (playingAudio.value === voice.voice_id) {
+    audioEl.pause()
+    playingAudio.value = null
+  } else {
+    // Stop currently playing
+    if (playingAudio.value) {
+      const current = document.getElementById('audio-' + playingAudio.value)
+      if (current) current.pause()
+    }
+    
+    audioEl.currentTime = 0
+    audioEl.play()
+    playingAudio.value = voice.voice_id
+    
+    audioEl.onended = () => {
+      playingAudio.value = null
+    }
+  }
+}
+
 onMounted(fetchData)
 </script>
 
 <template>
-  <div class="page page-voices">
-    <header class="header">
-      <div>
-        <h1>{{ t('voices.title') }}</h1>
-        <p class="subtitle">{{ t('voices.subtitle') }}</p>
-      </div>
-      <div class="header-actions">
-        <div v-if="defaultKey" class="current-key-display">
+  <div class="page-container">
+    <header class="page-header">
+      <div class="header-content">
+        <div>
+          <h1>{{ t('voices.title') }}</h1>
+          <p class="subtitle">{{ t('voices.subtitle') }}</p>
+        </div>
+        
+        <div class="header-actions">
+          <div v-if="defaultKey" class="key-badge">
              <span class="text-muted">{{ t('voices.currentKey') }}:</span>
              <code class="key-val">{{ defaultKey.remark || (defaultKey.key.substring(0,8) + '...') }}</code>
+          </div>
+          
+          <button @click="syncVoices" :disabled="loading" class="btn btn-secondary">
+            <Cloud size="18" /> {{ t('voices.sync') }}
+          </button>
+          
+          <button @click="openModal('design')" class="btn btn-secondary">
+            <Palette size="18" /> {{ t('voices.designNew') }}
+          </button>
+          
+          <button @click="openModal('clone')" class="btn btn-primary">
+            <Plus size="18" /> {{ t('voices.cloneNew') }}
+          </button>
         </div>
-        <div v-else class="text-warning">
-            {{ t('voices.noDefaultKey') }}
-        </div>
-        <button @click="syncVoices" :disabled="loading" class="btn btn-secondary">
-          <Cloud size="18" /> {{ t('voices.sync') }}
-        </button>
-        <button @click="openModal('design')" class="btn btn-secondary">
-          <Palette size="18" /> {{ t('voices.designNew') }}
-        </button>
-        <button @click="openModal('clone')" class="btn btn-primary">
-          <Plus size="18" /> {{ t('voices.cloneNew') }}
-        </button>
+      </div>
+      
+      <!-- Tabs Navigation -->
+      <div class="tabs-wrapper">
+        <nav class="tabs-nav">
+          <button 
+            v-for="tab in tabs" 
+            :key="tab.key"
+            class="tab-item"
+            :class="{ active: currentTab === tab.key }"
+            @click="currentTab = tab.key"
+          >
+            <component :is="tab.icon" size="18" />
+            <span>{{ tab.label }}</span>
+            <span class="badge badge-neutral ml-2">{{ categorizedVoices[tab.key]?.length || 0 }}</span>
+          </button>
+        </nav>
       </div>
     </header>
 
-    <!-- Categorized Voice Lists -->
-    <div class="voice-categories">
-      <!-- System Voices -->
-      <div v-if="categorizedVoices.system.length > 0" class="category-section">
-        <h2 class="category-title">系统音色 (System Voices)</h2>
-        <div class="voices-grid">
-          <div v-for="voice in categorizedVoices.system" :key="voice.id" class="card voice-card">
-            <div class="voice-icon">
-              <Mic size="24" />
+    <!-- Voice Grid -->
+    <div class="voice-content">
+      <div v-if="currentVoices.length > 0" class="voices-grid">
+        <div v-for="voice in currentVoices" :key="voice.voice_id" class="voice-card card">
+          <div class="voice-header">
+            <div class="voice-avatar" :class="`avatar-${voice.type}`">
+              {{ voice.name.charAt(0).toUpperCase() }}
             </div>
             <div class="voice-info">
               <h3>{{ voice.name }}</h3>
-              <span class="voice-id">{{ voice.voice_id }}</span>
-              <span class="badge badge-system">{{ voice.type }}</span>
+              <div class="voice-meta">
+                <span class="voice-id" :title="voice.voice_id">{{ voice.voice_id.substring(0, 12) }}...</span>
+              </div>
             </div>
-            <!-- System voices cannot be deleted -->
-            <div class="actions">
-            </div>
+            
+            <button 
+              v-if="voice.demo_audio || voice.preview"
+              class="play-btn" 
+              :class="{ playing: playingAudio === voice.voice_id }"
+              @click="toggleAudio(voice)"
+            >
+              <component :is="playingAudio === voice.voice_id ? Pause : Play" size="20" fill="currentColor" />
+            </button>
+            <audio 
+              :id="'audio-' + voice.voice_id" 
+              :src="voice.demo_audio || voice.preview" 
+              style="display: none"
+            ></audio>
           </div>
-        </div>
-      </div>
-
-      <!-- Cloned Voices -->
-      <div v-if="categorizedVoices.cloned.length > 0" class="category-section">
-        <h2 class="category-title">复刻音色 (Cloned Voices)</h2>
-        <div class="voices-grid">
-          <div v-for="voice in categorizedVoices.cloned" :key="voice.id" class="card voice-card">
-            <div class="voice-icon">
-              <Mic size="24" />
-            </div>
-            <div class="voice-info">
-              <h3>{{ voice.name }}</h3>
-              <span class="voice-id">{{ voice.voice_id }}</span>
-              <span class="badge badge-cloned">{{ voice.type }}</span>
-            </div>
-            <div class="actions">
-              <audio v-if="voice.demo_audio" :src="voice.demo_audio" controls class="mini-player"></audio>
-              <button @click="deleteVoice(voice)" class="btn-icon delete">
-                <Trash2 size="18" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Generated Voices -->
-      <div v-if="categorizedVoices.generated.length > 0" class="category-section">
-        <h2 class="category-title">设计音色 (Generated Voices)</h2>
-        <div class="voices-grid">
-          <div v-for="voice in categorizedVoices.generated" :key="voice.id" class="card voice-card">
-            <div class="voice-icon">
-              <Mic size="24" />
-            </div>
-            <div class="voice-info">
-              <h3>{{ voice.name }}</h3>
-              <span class="voice-id">{{ voice.voice_id }}</span>
-              <span class="badge badge-generated">{{ voice.type }}</span>
-            </div>
-            <div class="actions">
-              <audio v-if="voice.preview" :src="voice.preview" controls class="mini-player"></audio>
-              <button @click="deleteVoice(voice)" class="btn-icon delete">
-                <Trash2 size="18" />
-              </button>
-            </div>
+          
+          <div class="voice-footer">
+            <span class="badge" :class="`badge-${voice.type}`">{{ voice.type }}</span>
+            <button 
+              v-if="voice.type !== 'system'" 
+              @click="deleteVoice(voice)" 
+              class="btn-icon delete"
+              title="Delete Voice"
+            >
+              <Trash2 size="16" />
+            </button>
           </div>
         </div>
       </div>
       
-      <div v-if="voices.length === 0" class="empty-state">
-        {{ t('voices.noVoices') }}
+      <div v-else class="empty-state">
+        <div class="empty-icon">
+          <Mic size="48" />
+        </div>
+        <h3>No voices found</h3>
+        <p>Create a new voice or sync from server</p>
       </div>
     </div>
 
     <!-- Modal -->
     <div v-if="showModal" class="modal-overlay">
       <div class="modal card">
-        <h2>{{ modalMode === 'clone' ? t('voices.modalTitle') : t('voices.modalDesign') }}</h2>
+        <header class="modal-header">
+          <h2>{{ modalMode === 'clone' ? t('voices.modalTitle') : t('voices.modalDesign') }}</h2>
+          <button class="close-btn" @click="showModal = false">×</button>
+        </header>
         
-        <!-- Common Fields -->
-        <div class="form-group">
-          <label>{{ t('voices.labelName') }}</label>
-          <input v-model="form.name" type="text" :placeholder="t('voices.phName')" />
+        <div class="modal-body">
+          <!-- Common Fields -->
+          <div class="form-group">
+            <label>{{ t('voices.labelName') }}</label>
+            <input v-model="form.name" type="text" :placeholder="t('voices.phName')" />
+          </div>
+
+          <!-- Clone Fields -->
+          <template v-if="modalMode === 'clone'">
+              <div class="form-group">
+                <label>{{ t('voices.labelSample') }}</label>
+                <div class="file-input-wrapper">
+                  <input type="file" @change="handleFileChange" accept="audio/*" />
+                </div>
+                <p class="hint">{{ t('voices.hintSample') }}</p>
+              </div>
+              
+              <div class="form-group">
+                <label>{{ t('voices.labelPromptFile') }}</label>
+                <div class="file-input-wrapper">
+                   <input type="file" @change="handlePromptFileChange" accept="audio/*" />
+                </div>
+                <p class="hint">{{ t('voices.hintPromptFile') }}</p>
+              </div>
+              
+              <div class="form-group">
+                <label>{{ t('voices.labelPromptText') }}</label>
+                <input v-model="form.prompt_text" type="text" :placeholder="t('voices.phPromptText')" />
+              </div>
+
+              <div class="form-group">
+                <label>{{ t('voices.labelDemoText') }}</label>
+                <textarea v-model="form.demo_text" :placeholder="t('voices.phDemoText')" maxlength="1000"></textarea>
+                <p class="hint">{{ t('voices.hintDemoText') }}</p>
+              </div>
+
+              <div class="form-group" v-if="form.demo_text">
+                <label>{{ t('voices.labelModel') }}</label>
+                <select v-model="form.model">
+                  <option v-for="opt in modelOptions" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="checkbox-grid">
+                <label class="checkbox-label">
+                  <input type="checkbox" v-model="form.noise_reduction" />
+                  <span>{{ t('voices.labelNoiseReduction') }}</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" v-model="form.volume_normalization" />
+                  <span>{{ t('voices.labelVolumeNorm') }}</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" v-model="form.watermark" />
+                  <span>{{ t('voices.labelWatermark') }}</span>
+                </label>
+              </div>
+          </template>
+
+          <!-- Design Fields -->
+          <template v-else>
+              <div class="form-group">
+                <label>{{ t('voices.labelPrompt') }}</label>
+                <textarea v-model="form.prompt" :placeholder="t('voices.phPrompt')" rows="4"></textarea>
+              </div>
+              <div class="form-group">
+                <label>{{ t('voices.labelPreview') }}</label>
+                <input v-model="form.preview_text" type="text" :placeholder="t('voices.phPreview')" />
+              </div>
+          </template>
         </div>
 
-        <!-- Clone Fields -->
-        <template v-if="modalMode === 'clone'">
-            <div class="form-group">
-              <label>{{ t('voices.labelSample') }}</label>
-              <input type="file" @change="handleFileChange" accept="audio/*" />
-              <p class="hint">{{ t('voices.hintSample') }}</p>
-            </div>
-            
-            <div class="form-group">
-              <label>{{ t('voices.labelPromptFile') }}</label>
-              <input type="file" @change="handlePromptFileChange" accept="audio/*" />
-              <p class="hint">{{ t('voices.hintPromptFile') }}</p>
-            </div>
-            
-            <div class="form-group">
-              <label>{{ t('voices.labelPromptText') }}</label>
-              <input v-model="form.prompt_text" type="text" :placeholder="t('voices.phPromptText')" />
-            </div>
-
-            <div class="form-group">
-              <label>{{ t('voices.labelDemoText') }}</label>
-              <textarea v-model="form.demo_text" :placeholder="t('voices.phDemoText')" maxlength="1000"></textarea>
-              <p class="hint">{{ t('voices.hintDemoText') }}</p>
-            </div>
-
-            <div class="form-group" v-if="form.demo_text">
-              <label>{{ t('voices.labelModel') }}</label>
-              <select v-model="form.model">
-                <option v-for="opt in modelOptions" :key="opt.value" :value="opt.value">
-                  {{ opt.label }}
-                </option>
-              </select>
-            </div>
-
-            <div class="form-row">
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="form.noise_reduction" />
-                <span>{{ t('voices.labelNoiseReduction') }}</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="form.volume_normalization" />
-                <span>{{ t('voices.labelVolumeNorm') }}</span>
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="form.watermark" />
-                <span>{{ t('voices.labelWatermark') }}</span>
-              </label>
-            </div>
-        </template>
-
-        <!-- Design Fields -->
-        <template v-else>
-            <div class="form-group">
-              <label>{{ t('voices.labelPrompt') }}</label>
-              <textarea v-model="form.prompt" :placeholder="t('voices.phPrompt')"></textarea>
-            </div>
-            <div class="form-group">
-              <label>{{ t('voices.labelPreview') }}</label>
-              <input v-model="form.preview_text" type="text" :placeholder="t('voices.phPreview')" />
-            </div>
-        </template>
-
-        <div class="modal-actions">
+        <div class="modal-footer">
           <button @click="showModal = false" class="btn btn-secondary">{{ t('voices.cancel') }}</button>
           <button @click="submitForm" :disabled="loading" class="btn btn-primary">
             {{ loading ? (modalMode==='clone'? t('voices.cloning'):t('voices.designing')) : (modalMode==='clone'? t('voices.startCloning'):t('voices.startDesigning')) }}
@@ -381,149 +424,210 @@ onMounted(fetchData)
 </template>
 
 <style scoped>
-.header {
+.page-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.page-header {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: var(--space-6) var(--space-6) 0;
+}
+
+.header-content {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: var(--space-6);
 }
 
 .header-actions {
-    display: flex;
-    gap: var(--space-2);
-    align-items: center;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
-.current-key-display {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-right: 16px;
-    font-size: 0.875rem;
-}
-
-.text-muted {
-    color: var(--text-secondary);
+.key-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-tertiary);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  margin-right: var(--space-2);
 }
 
 .key-val {
-    background: var(--bg-tertiary);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-family: monospace;
-    color: var(--text-primary);
-}
-
-.text-warning {
-    color: var(--error);
-    margin-right: 16px;
-    font-size: 0.875rem;
-}
-
-.voice-categories {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-
-.category-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.category-title {
-  font-size: 1.25rem;
+  font-family: monospace;
   font-weight: 600;
+  color: var(--primary);
+}
+
+.tabs-wrapper {
+  margin-top: var(--space-2);
+}
+
+.tabs-nav {
+  display: flex;
+  gap: var(--space-6);
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.tab-item:hover {
   color: var(--text-primary);
-  margin: 0;
-  padding-bottom: var(--space-2);
-  border-bottom: 2px solid var(--border-color);
+}
+
+.tab-item.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.voice-content {
+  flex: 1;
+  padding: var(--space-6);
+  overflow-y: auto;
 }
 
 .voices-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-6);
 }
 
 .voice-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
   padding: var(--space-4);
-  transition: transform 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-fast);
 }
 
 .voice-card:hover {
   transform: translateY(-2px);
-  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary-light);
 }
 
-.voice-icon {
+.voice-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.voice-avatar {
   width: 48px;
   height: 48px;
   border-radius: var(--radius-full);
-  background: var(--bg-tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary-light);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
 }
+
+.avatar-system { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+.avatar-cloned { background: linear-gradient(135deg, #10b981, #059669); }
+.avatar-generated { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
 
 .voice-info {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  min-width: 0;
 }
 
 .voice-info h3 {
   margin: 0;
   font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voice-meta {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: 2px;
 }
 
 .voice-id {
   font-size: 0.75rem;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   font-family: monospace;
 }
 
-.badge {
-  display: inline-block;
-  font-size: 0.75rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  width: fit-content;
-  margin-top: 4px;
-}
-
-.badge-system {
-  background: #3b82f6;
-  color: white;
-}
-
-.badge-cloned {
-  background: #10b981;
-  color: white;
-}
-
-.badge-generated {
-  background: #8b5cf6;
-  color: white;
-}
-
-.mini-player {
-    height: 30px;
-    width: 120px;
-}
-
-.actions {
+.play-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   display: flex;
-  gap: var(--space-2);
   align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
 }
 
-/* Modal */
+.play-btn:hover {
+  background: var(--primary);
+  color: white;
+}
+
+.play-btn.playing {
+  background: var(--primary);
+  color: white;
+  animation: pulse 2s infinite;
+}
+
+.voice-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+}
+
+.badge-system { background: var(--info-bg); color: var(--info); }
+.badge-cloned { background: var(--success-bg); color: var(--success); }
+.badge-generated { background: var(--primary-bg); color: var(--primary); }
+
+.btn-icon.delete:hover {
+  color: var(--error);
+  background: var(--error-bg);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-10);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.empty-icon {
+  margin-bottom: var(--space-4);
+  color: var(--border-color);
+}
+
+/* Modal Styles */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -535,57 +639,84 @@ onMounted(fetchData)
   align-items: center;
   justify-content: center;
   z-index: 100;
+  backdrop-filter: blur(4px);
 }
 
 .modal {
-  width: 500px;
+  width: 550px;
   max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.modal-header {
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.close-btn {
+  font-size: 1.5rem;
+  color: var(--text-tertiary);
+  background: transparent;
+}
+
+.modal-body {
+  padding: var(--space-6);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.form-row {
-  display: flex;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-}
-
-.checkbox-label input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
-
-.hint {
-  font-size: 0.8rem;
-  color: var(--text-tertiary);
-  margin: 0;
-}
-
-.modal-actions {
+.modal-footer {
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-end;
+  gap: var(--space-3);
+  background: var(--bg-secondary);
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: var(--space-3);
   margin-top: var(--space-2);
 }
 
-textarea {
-  min-height: 80px;
-  resize: vertical;
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .tabs-nav {
+    overflow-x: auto;
+    padding-bottom: 0;
+  }
+  
+  .tab-item {
+    white-space: nowrap;
+  }
 }
 </style>

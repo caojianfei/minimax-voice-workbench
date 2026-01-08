@@ -96,6 +96,9 @@
         "btnUploadFile": "上传文件",
         "btnUploading": "上传中...",
         "title": "Minimax 语音合成工作台",
+        "sectionBasic": "基础配置",
+        "sectionInput": "文本输入",
+        "sectionParameters": "参数调节",
         "sectionCommon": "常用设置",
         "sectionAdvanced": "高级设置",
         "inputType": {
@@ -111,6 +114,7 @@
         "labelPitch": "语调 (Pitch)",
         "labelEmotion": "情感 (Emotion)",
         "labelLangBoost": "语种增强",
+        "labelAudioSetting": "音频设置",
         "labelSampleRate": "采样率",
         "labelBitrate": "比特率",
         "labelFormat": "格式",
