@@ -25,18 +25,35 @@ func ListSynthesisTasks(c *gin.Context) {
 }
 
 type GenerateSpeechRequest struct {
-	Text    string  `json:"text" binding:"required"`
-	VoiceID string  `json:"voice_id" binding:"required"`
-	Speed   float64 `json:"speed"`
-	Vol     float64 `json:"vol"`
-	KeyID   uint    `json:"key_id" binding:"required"`
-	Model   string  `json:"model"`
+	Text              string         `json:"text"`
+	TextFileID        int64          `json:"text_file_id"`
+	VoiceID           string         `json:"voice_id" binding:"required"`
+	Speed             float64        `json:"speed"`
+	Vol               float64        `json:"vol"`
+	KeyID             uint           `json:"key_id" binding:"required"`
+	Model             string         `json:"model"`
+	Pitch             int            `json:"pitch"`
+	Emotion           string         `json:"emotion"`
+	LanguageBoost     string         `json:"language_boost"`
+	SampleRate        int64          `json:"sample_rate"`
+	Bitrate           int64          `json:"bitrate"`
+	Format            string         `json:"format"`
+	Channel           int64          `json:"channel"`
+	Watermark         bool           `json:"watermark"`
+	VoiceModify       map[string]int `json:"voice_modify"` // pitch, intensity, timbre
+	SoundEffects      string         `json:"sound_effects"`
+	PronunciationDict map[string]any `json:"pronunciation_dict"`
 }
 
 func GenerateSpeech(c *gin.Context) {
 	var req GenerateSpeechRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ErrorResponse(c, http.StatusBadRequest, 2, "Invalid request body")
+		return
+	}
+
+	if req.Text == "" && req.TextFileID == 0 {
+		ErrorResponse(c, http.StatusBadRequest, 5, "Text or TextFileID is required")
 		return
 	}
 
@@ -48,20 +65,51 @@ func GenerateSpeech(c *gin.Context) {
 
 	client := minimax.NewClient(apiKey.Key)
 
+	// Voice Modify
+	var voiceModify minimax.VoiceModify
+	if req.VoiceModify != nil {
+		voiceModify.Pitch = req.VoiceModify["pitch"]
+		voiceModify.Intensity = req.VoiceModify["intensity"]
+		voiceModify.Timbre = req.VoiceModify["timbre"]
+	}
+	voiceModify.SoundEffects = req.SoundEffects
+
+	// Audio Setting
+	audioSetting := minimax.AudioSetting{
+		AudioSampleRate: 32000,
+		Bitrate:         128000,
+		Format:          "mp3",
+		Channel:         1,
+	}
+	if req.SampleRate > 0 {
+		audioSetting.AudioSampleRate = req.SampleRate
+	}
+	if req.Bitrate > 0 {
+		audioSetting.Bitrate = req.Bitrate
+	}
+	if req.Format != "" {
+		audioSetting.Format = req.Format
+	}
+	if req.Channel > 0 {
+		audioSetting.Channel = req.Channel
+	}
+
 	t2aReq := &minimax.T2ARequest{
-		Model: req.Model,
-		Text:  req.Text,
+		Model:         req.Model,
+		Text:          req.Text,
+		TextFileID:    req.TextFileID,
+		LanguageBoost: req.LanguageBoost,
 		VoiceSetting: minimax.VoiceSetting{
 			VoiceID: req.VoiceID,
 			Speed:   req.Speed,
 			Vol:     req.Vol,
+			Pitch:   req.Pitch,
+			Emotion: req.Emotion,
 		},
-		AudioSetting: minimax.AudioSetting{
-			AudioSampleRate: 32000,
-			Bitrate:         128000,
-			Format:          "mp3",
-			Channel:         1,
-		},
+		AudioSetting:      audioSetting,
+		VoiceModify:       voiceModify,
+		AigcWatermark:     req.Watermark,
+		PronunciationDict: req.PronunciationDict,
 	}
 
 	resp, err := client.T2AAsync(t2aReq)
@@ -69,6 +117,9 @@ func GenerateSpeech(c *gin.Context) {
 		Text:    req.Text,
 		VoiceID: req.VoiceID,
 		Status:  "processing",
+	}
+	if req.TextFileID > 0 {
+		task.Text = fmt.Sprintf("FileID: %d", req.TextFileID)
 	}
 
 	if err != nil {
@@ -193,4 +244,46 @@ func DeleteSynthesisTask(c *gin.Context) {
 		return
 	}
 	SuccessResponse(c, nil)
+}
+
+func UploadTextFile(c *gin.Context) {
+	keyIDStr := c.PostForm("key_id")
+	keyID, _ := strconv.Atoi(keyIDStr)
+
+	var apiKey model.ApiKey
+	if err := database.DB.First(&apiKey, keyID).Error; err != nil {
+		ErrorResponse(c, http.StatusBadRequest, 1, "Invalid API Key ID")
+		return
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, 2, "File upload required")
+		return
+	}
+
+	// Validate extension
+	ext := filepath.Ext(fileHeader.Filename)
+	if ext != ".txt" && ext != ".zip" {
+		ErrorResponse(c, http.StatusBadRequest, 3, "Only .txt and .zip files are allowed")
+		return
+	}
+
+	tempDir := "uploads"
+	os.MkdirAll(tempDir, 0755)
+	tempPath := filepath.Join(tempDir, fmt.Sprintf("%d_%s", time.Now().Unix(), fileHeader.Filename))
+	if err := c.SaveUploadedFile(fileHeader, tempPath); err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, 4, "Failed to save file")
+		return
+	}
+	defer os.Remove(tempPath)
+
+	client := minimax.NewClient(apiKey.Key)
+	resp, err := client.UploadFile(tempPath, "t2a_async_input")
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, 5, "Minimax Upload Failed: "+err.Error())
+		return
+	}
+
+	SuccessResponse(c, resp.File)
 }

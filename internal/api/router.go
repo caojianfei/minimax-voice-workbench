@@ -34,6 +34,7 @@ func SetupRouter(r *gin.Engine) {
 		// Synthesis
 		api.GET("/synthesis", ListSynthesisTasks)
 		api.POST("/synthesis", GenerateSpeech)
+		api.POST("/synthesis/upload", UploadTextFile)
 		api.GET("/synthesis/:id/status", CheckTaskStatus)
 		api.DELETE("/synthesis/:id", DeleteSynthesisTask)
 	}
