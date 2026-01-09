@@ -102,6 +102,7 @@ watch(() => route.path, () => {
       <div class="content-wrapper">
         <RouterView />
       </div>
+      <Footer />
     </main>
   </div>
 </template>
@@ -289,17 +290,19 @@ watch(() => route.path, () => {
 .main-content {
   flex: 1;
   margin-left: var(--sidebar-width);
-  min-height: 100vh;
   padding: var(--space-6);
   transition: margin-left var(--transition-normal);
   max-width: 100%;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .content-wrapper {
   max-width: 1600px;
   margin: 0 auto;
-  height: 100%;
+  flex: 1;
+  width: 100%;
 }
 
 /* Responsive */
