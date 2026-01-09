@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import axios from 'axios'
-import { Play, Download, Trash2, Cpu, ChevronDown, ChevronUp, Info, Key, Library, X } from 'lucide-vue-next'
+import { Play, Download, Trash2, Cpu, ChevronDown, ChevronUp, Info, Key, Library, X, RotateCcw } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import VoiceSelector from '../components/VoiceSelector.vue'
 
@@ -25,41 +25,32 @@ const inputType = ref('text') // 'text' or 'file'
 
 const persistKey = 'minimax_voice_workbench_form_v1'
 
-const form = ref({
-  // Common
+const getDefaultForm = () => ({
   model: 'speech-2.6-hd',
   text: '',
   text_file_id: '',
   voice_id: '',
-  // key_id: '',
   speed: 1.0,
   vol: 1.0,
-  
-  // Advanced
   pitch: 0,
   emotion: '',
   language_boost: 'auto',
   english_normalization: false,
-  
-  // Audio Settings
   sample_rate: 32000,
   bitrate: 128000,
   format: 'mp3',
   channel: 1,
-  
-  // Voice Modify
   voice_modify: {
     pitch: 0,
     intensity: 0,
     timbre: 0
   },
   sound_effects: '',
-  
   watermark: false,
-  
-  // Extra
   pronunciation_dict_str: ''
 })
+
+const form = ref(getDefaultForm())
 
 const sampleRateOptions = [
   { value: 8000, label: '8k' },
@@ -238,6 +229,13 @@ const startPolling = () => {
 
 const closeVoiceSelector = () => {
   showVoiceSelector.value = false
+}
+
+const resetParams = () => {
+  const next = getDefaultForm()
+  next.voice_id = voices.value?.[0]?.voice_id || ''
+  form.value = next
+  inputType.value = 'text'
 }
 
 const onWindowKeydown = (e) => {
@@ -918,9 +916,17 @@ onMounted(() => {
           </div>
 
           <div class="workspace-footer">
-            <div class="pronunciation-bar">
-               <!-- Optional: Pronunciation dict input could go here or be hidden in advanced -->
-            </div>
+            <div class="pronunciation-bar"></div>
+            <div class="footer-actions">
+              <button
+                type="button"
+                class="btn btn-secondary btn-xl reset-btn"
+                @click="resetParams"
+                :disabled="loading"
+              >
+                <RotateCcw size="20" />
+                <span>{{ t('workbench.btnReset') }}</span>
+              </button>
             <button 
               @click="generate" 
               :disabled="loading" 
@@ -929,6 +935,7 @@ onMounted(() => {
               <component :is="loading ? Cpu : Play" :class="{ 'animate-spin': loading }" size="20" />
               <span>{{ loading ? t('workbench.btnGenerating') : t('workbench.btnGenerate') }}</span>
             </button>
+            </div>
           </div>
         </div>
       </main>
@@ -1437,7 +1444,21 @@ onMounted(() => {
   align-items: center;
 }
 
+.pronunciation-bar {
+  flex: 1;
+}
+
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .generate-btn {
+  min-width: 160px;
+}
+
+.reset-btn {
   min-width: 160px;
 }
 

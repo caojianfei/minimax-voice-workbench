@@ -175,6 +175,7 @@
         "modeAsync": "Async Mode (Long Text)",
         "labelText": "Text to Speech",
         "phText": "Enter text here...",
+        "btnReset": "Reset Params",
         "btnGenerate": "Generate Speech",
         "btnGenerating": "Generating...",
         "historyTitle": "Generation History",

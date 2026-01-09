@@ -184,6 +184,7 @@
         "modeAsync": "异步模式 (长文本)",
         "labelText": "合成文本",
         "phText": "在此输入文本...",
+        "btnReset": "重置参数",
         "btnGenerate": "生成语音",
         "btnGenerating": "生成中...",
         "historyTitle": "生成记录",
