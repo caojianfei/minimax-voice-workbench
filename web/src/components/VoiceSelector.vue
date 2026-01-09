@@ -375,9 +375,9 @@ defineExpose({
   pointer-events: none;
 }
 
-.search-input {
-  padding-left: calc(var(--space-3) + 16px + var(--space-2));
-  padding-right: calc(var(--space-3) + 16px + var(--space-2));
+.search-wrap input.search-input {
+  padding: var(--space-2) calc(var(--space-3) + 16px + var(--space-2)) var(--space-2) calc(var(--space-3) + 16px + var(--space-2));
+  padding-right: calc(var(--space-3) + 16px + var(--space-3));
   background: var(--bg-secondary);
 }
 

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import axios from 'axios'
 import { Play, Download, Trash2, Cpu, ChevronDown, ChevronUp, Info, Key, Library, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -13,6 +13,13 @@ const keys = ref([])
 const loading = ref(false)
 const showAdvanced = ref(false)
 const showVoiceSelector = ref(false)
+const tipOpen = ref(false)
+const tipText = ref('')
+const tipTop = ref(0)
+const tipLeft = ref(0)
+const tipPlacement = ref('bottom')
+const tipEl = ref(null)
+const tipTargetEl = ref(null)
 
 const inputType = ref('text') // 'text' or 'file'
 
@@ -110,6 +117,56 @@ const api = axios.create({
   baseURL: import.meta.env.DEV ? 'http://localhost:8080/api' : '/api'
 })
 
+const clamp = (value, min, max) => Math.max(min, Math.min(value, max))
+
+const positionTip = () => {
+  const target = tipTargetEl.value
+  const el = tipEl.value
+  if (!target || !el) return
+
+  const targetRect = target.getBoundingClientRect()
+  const tipRect = el.getBoundingClientRect()
+  const margin = 12
+  const gap = 10
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+
+  let placement = 'bottom'
+  let top = targetRect.bottom + gap
+  let left = targetRect.left + targetRect.width / 2 - tipRect.width / 2
+
+  if (top + tipRect.height + margin > vh) {
+    placement = 'top'
+    top = targetRect.top - gap - tipRect.height
+  }
+
+  left = clamp(left, margin, vw - margin - tipRect.width)
+  top = clamp(top, margin, vh - margin - tipRect.height)
+
+  tipPlacement.value = placement
+  tipTop.value = top
+  tipLeft.value = left
+}
+
+const onTipViewportChange = () => {
+  if (!tipOpen.value) return
+  positionTip()
+}
+
+const showTip = async (event, text) => {
+  if (!text) return
+  tipTargetEl.value = event?.currentTarget || null
+  tipText.value = text
+  tipOpen.value = true
+  await nextTick()
+  positionTip()
+}
+
+const hideTip = () => {
+  tipOpen.value = false
+  tipTargetEl.value = null
+}
+
 const isUploading = ref(false)
 const fileInput = ref(null)
 
@@ -192,6 +249,8 @@ const onWindowKeydown = (e) => {
 onUnmounted(() => {
   if (pollInterval) clearInterval(pollInterval)
   window.removeEventListener('keydown', onWindowKeydown)
+  window.removeEventListener('scroll', onTipViewportChange, true)
+  window.removeEventListener('resize', onTipViewportChange)
 })
 
 const defaultKey = computed(() => {
@@ -347,6 +406,8 @@ onMounted(() => {
   loadPersistedForm()
   init()
   window.addEventListener('keydown', onWindowKeydown)
+  window.addEventListener('scroll', onTipViewportChange, true)
+  window.addEventListener('resize', onTipViewportChange)
 })
 </script>
 
@@ -376,7 +437,16 @@ onMounted(() => {
             <div class="form-group">
               <label class="label-with-tip">
                 {{ t('workbench.labelModel') }}
-                <div class="tooltip" :data-tip="t('workbench.tips.model')" tabindex="0"><Info size="14"/></div>
+                <button
+                  type="button"
+                  class="tip-trigger"
+                  @mouseenter="(e) => showTip(e, t('workbench.tips.model'))"
+                  @mouseleave="hideTip"
+                  @focus="(e) => showTip(e, t('workbench.tips.model'))"
+                  @blur="hideTip"
+                >
+                  <Info size="14" />
+                </button>
               </label>
               <div class="select-wrapper">
                 <select v-model="form.model" class="custom-select">
@@ -388,21 +458,27 @@ onMounted(() => {
             <div class="form-group relative">
               <label class="label-with-tip">
                 {{ t('workbench.labelVoice') }}
-                <div class="tooltip" :data-tip="t('workbench.tips.voiceId')" tabindex="0"><Info size="14"/></div>
+                <button
+                  type="button"
+                  class="tip-trigger"
+                  @mouseenter="(e) => showTip(e, t('workbench.tips.voiceId'))"
+                  @mouseleave="hideTip"
+                  @focus="(e) => showTip(e, t('workbench.tips.voiceId'))"
+                  @blur="hideTip"
+                >
+                  <Info size="14" />
+                </button>
               </label>
               
               <!-- Custom Voice Selector Trigger -->
-              <div 
-                class="custom-select flex items-center justify-between cursor-pointer"
+              <button 
+                type="button"
+                class="voice-trigger"
                 @click="showVoiceSelector = true"
-                role="button"
-                tabindex="0"
-                @keydown.enter.prevent="showVoiceSelector = true"
-                @keydown.space.prevent="showVoiceSelector = true"
               >
-                <span class="truncate">{{ voices.find(v => v.voice_id === form.voice_id)?.name || 'Select Voice' }}</span>
-                <ChevronDown size="16" class="text-gray-500" />
-              </div>
+                <span class="voice-trigger-text">{{ voices.find(v => v.voice_id === form.voice_id)?.name || 'Select Voice' }}</span>
+                <ChevronDown size="16" class="voice-trigger-icon" />
+              </button>
             </div>
           </div>
 
@@ -412,7 +488,19 @@ onMounted(() => {
             
             <div class="slider-group">
               <div class="slider-header">
-                <label>{{ t('workbench.labelSpeed') }}</label>
+                <label class="label-with-tip">
+                  <span>{{ t('workbench.labelSpeed') }}</span>
+                  <button
+                    type="button"
+                    class="tip-trigger"
+                    @mouseenter="(e) => showTip(e, t('workbench.tips.speed'))"
+                    @mouseleave="hideTip"
+                    @focus="(e) => showTip(e, t('workbench.tips.speed'))"
+                    @blur="hideTip"
+                  >
+                    <Info size="14" />
+                  </button>
+                </label>
                 <span class="value-badge">{{ form.speed.toFixed(1) }}x</span>
               </div>
               <input type="range" v-model.number="form.speed" min="0.5" max="2.0" step="0.1" class="modern-range" />
@@ -420,7 +508,19 @@ onMounted(() => {
 
             <div class="slider-group">
               <div class="slider-header">
-                <label>{{ t('workbench.labelVol') }}</label>
+                <label class="label-with-tip">
+                  <span>{{ t('workbench.labelVol') }}</span>
+                  <button
+                    type="button"
+                    class="tip-trigger"
+                    @mouseenter="(e) => showTip(e, t('workbench.tips.vol'))"
+                    @mouseleave="hideTip"
+                    @focus="(e) => showTip(e, t('workbench.tips.vol'))"
+                    @blur="hideTip"
+                  >
+                    <Info size="14" />
+                  </button>
+                </label>
                 <span class="value-badge">{{ form.vol.toFixed(1) }}x</span>
               </div>
               <input type="range" v-model.number="form.vol" min="0.1" max="10.0" step="0.1" class="modern-range" />
@@ -430,6 +530,16 @@ onMounted(() => {
               <div class="slider-header">
                 <label class="label-with-tip">
                    <span>{{ t('workbench.labelPitch') }}</span>
+                   <button
+                     type="button"
+                     class="tip-trigger"
+                     @mouseenter="(e) => showTip(e, t('workbench.tips.pitch'))"
+                     @mouseleave="hideTip"
+                     @focus="(e) => showTip(e, t('workbench.tips.pitch'))"
+                     @blur="hideTip"
+                   >
+                     <Info size="14" />
+                   </button>
                 </label>
                 <span class="value-badge">{{ form.pitch }}</span>
               </div>
@@ -447,14 +557,38 @@ onMounted(() => {
             <Transition name="expand">
               <div v-show="showAdvanced" class="collapsible-content">
                 <div class="form-group">
-                  <label>{{ t('workbench.labelEmotion') }}</label>
+                  <label class="label-with-tip">
+                    <span>{{ t('workbench.labelEmotion') }}</span>
+                    <button
+                      type="button"
+                      class="tip-trigger"
+                      @mouseenter="(e) => showTip(e, t('workbench.tips.emotion'))"
+                      @mouseleave="hideTip"
+                      @focus="(e) => showTip(e, t('workbench.tips.emotion'))"
+                      @blur="hideTip"
+                    >
+                      <Info size="14" />
+                    </button>
+                  </label>
                   <select v-model="form.emotion" class="custom-select">
                     <option v-for="opt in emotionOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                   </select>
                 </div>
 
                 <div class="form-group">
-                  <label>{{ t('workbench.labelLangBoost') }}</label>
+                  <label class="label-with-tip">
+                    <span>{{ t('workbench.labelLangBoost') }}</span>
+                    <button
+                      type="button"
+                      class="tip-trigger"
+                      @mouseenter="(e) => showTip(e, t('workbench.tips.langBoost'))"
+                      @mouseleave="hideTip"
+                      @focus="(e) => showTip(e, t('workbench.tips.langBoost'))"
+                      @blur="hideTip"
+                    >
+                      <Info size="14" />
+                    </button>
+                  </label>
                   <select v-model="form.language_boost" class="custom-select">
                     <option value="auto">{{ t('workbench.options.auto') }}</option>
                     <option value="Chinese">{{ t('workbench.options.chinese') }}</option>
@@ -475,7 +609,16 @@ onMounted(() => {
                   >
                     <span class="switch-label">{{ t('workbench.labelNorm') }}</span>
                     <div class="switch-row-right">
-                      <div class="tooltip" :data-tip="t('workbench.tips.englishNormalization')" tabindex="0"><Info size="14"/></div>
+                      <button
+                        type="button"
+                        class="tip-trigger"
+                        @mouseenter="(e) => showTip(e, t('workbench.tips.englishNormalization'))"
+                        @mouseleave="hideTip"
+                        @focus="(e) => showTip(e, t('workbench.tips.englishNormalization'))"
+                        @blur="hideTip"
+                      >
+                        <Info size="14" />
+                      </button>
                       <div class="switch" :class="{ active: form.english_normalization }"></div>
                     </div>
                   </div>
@@ -504,7 +647,19 @@ onMounted(() => {
                 <h4 class="sub-title">{{ t('workbench.labelAudioSetting') }}</h4>
                 <div class="grid-2">
                   <div class="form-group">
-                    <label class="small-label">{{ t('workbench.labelSampleRate') }}</label>
+                    <label class="small-label label-with-tip">
+                      <span>{{ t('workbench.labelSampleRate') }}</span>
+                      <button
+                        type="button"
+                        class="tip-trigger"
+                        @mouseenter="(e) => showTip(e, t('workbench.tips.sampleRate'))"
+                        @mouseleave="hideTip"
+                        @focus="(e) => showTip(e, t('workbench.tips.sampleRate'))"
+                        @blur="hideTip"
+                      >
+                        <Info size="14" />
+                      </button>
+                    </label>
                     <select v-model.number="form.sample_rate" class="custom-select sm">
                       <option v-for="opt in sampleRateOptions" :key="opt.value" :value="opt.value">
                         {{ opt.label }}
@@ -512,7 +667,19 @@ onMounted(() => {
                     </select>
                   </div>
                   <div class="form-group">
-                    <label class="small-label">{{ t('workbench.labelBitrate') }}</label>
+                    <label class="small-label label-with-tip">
+                      <span>{{ t('workbench.labelBitrate') }}</span>
+                      <button
+                        type="button"
+                        class="tip-trigger"
+                        @mouseenter="(e) => showTip(e, t('workbench.tips.bitrate'))"
+                        @mouseleave="hideTip"
+                        @focus="(e) => showTip(e, t('workbench.tips.bitrate'))"
+                        @blur="hideTip"
+                      >
+                        <Info size="14" />
+                      </button>
+                    </label>
                     <select v-model.number="form.bitrate" class="custom-select sm" :disabled="form.format !== 'mp3'">
                       <option v-for="opt in bitrateOptions" :key="opt.value" :value="opt.value">
                         {{ opt.label }}
@@ -522,7 +689,19 @@ onMounted(() => {
                 </div>
 
                 <div class="form-group">
-                  <label class="small-label">{{ t('workbench.labelFormat') }}</label>
+                  <label class="small-label label-with-tip">
+                    <span>{{ t('workbench.labelFormat') }}</span>
+                    <button
+                      type="button"
+                      class="tip-trigger"
+                      @mouseenter="(e) => showTip(e, t('workbench.tips.format'))"
+                      @mouseleave="hideTip"
+                      @focus="(e) => showTip(e, t('workbench.tips.format'))"
+                      @blur="hideTip"
+                    >
+                      <Info size="14" />
+                    </button>
+                  </label>
                   <div class="radio-group">
                     <label v-for="opt in formatOptions" :key="opt.value" class="radio-option">
                       <input type="radio" v-model="form.format" :value="opt.value" />
@@ -532,7 +711,19 @@ onMounted(() => {
                 </div>
 
                 <div class="form-group">
-                  <label class="small-label">{{ t('workbench.labelChannel') }}</label>
+                  <label class="small-label label-with-tip">
+                    <span>{{ t('workbench.labelChannel') }}</span>
+                    <button
+                      type="button"
+                      class="tip-trigger"
+                      @mouseenter="(e) => showTip(e, t('workbench.tips.channel'))"
+                      @mouseleave="hideTip"
+                      @focus="(e) => showTip(e, t('workbench.tips.channel'))"
+                      @blur="hideTip"
+                    >
+                      <Info size="14" />
+                    </button>
+                  </label>
                   <div class="radio-group">
                     <label class="radio-option">
                       <input type="radio" v-model.number="form.channel" :value="1" />
@@ -553,13 +744,22 @@ onMounted(() => {
                 <div class="form-group">
                   <label class="label-with-tip">
                      <span>{{ t('workbench.labelPronunciationDict') }}</span>
-                     <div class="tooltip" :data-tip="t('workbench.tips.pronunciationDict')" tabindex="0"><Info size="14"/></div>
+                     <button
+                       type="button"
+                       class="tip-trigger"
+                       @mouseenter="(e) => showTip(e, t('workbench.tips.pronunciationDict'))"
+                       @mouseleave="hideTip"
+                       @focus="(e) => showTip(e, t('workbench.tips.pronunciationDict'))"
+                       @blur="hideTip"
+                     >
+                       <Info size="14" />
+                     </button>
                   </label>
                   <textarea 
                      v-model="form.pronunciation_dict_str" 
                      :placeholder="t('workbench.phPronunciationDict')"
                      rows="2"
-                     class="custom-textarea"
+                      class="custom-textarea"
                   ></textarea>
                 </div>
 
@@ -567,6 +767,16 @@ onMounted(() => {
                    <div class="slider-header">
                     <label class="label-with-tip">
                        <span>{{ t('workbench.labelVmPitch') }}</span>
+                       <button
+                         type="button"
+                         class="tip-trigger"
+                         @mouseenter="(e) => showTip(e, t('workbench.tips.vmPitch'))"
+                         @mouseleave="hideTip"
+                         @focus="(e) => showTip(e, t('workbench.tips.vmPitch'))"
+                         @blur="hideTip"
+                       >
+                         <Info size="14" />
+                       </button>
                     </label>
                     <span class="value-badge">{{ form.voice_modify.pitch }}</span>
                   </div>
@@ -577,6 +787,16 @@ onMounted(() => {
                    <div class="slider-header">
                     <label class="label-with-tip">
                        <span>{{ t('workbench.labelVmIntensity') }}</span>
+                       <button
+                         type="button"
+                         class="tip-trigger"
+                         @mouseenter="(e) => showTip(e, t('workbench.tips.vmIntensity'))"
+                         @mouseleave="hideTip"
+                         @focus="(e) => showTip(e, t('workbench.tips.vmIntensity'))"
+                         @blur="hideTip"
+                       >
+                         <Info size="14" />
+                       </button>
                     </label>
                     <span class="value-badge">{{ form.voice_modify.intensity }}</span>
                   </div>
@@ -587,6 +807,16 @@ onMounted(() => {
                    <div class="slider-header">
                     <label class="label-with-tip">
                        <span>{{ t('workbench.labelVmTimbre') }}</span>
+                       <button
+                         type="button"
+                         class="tip-trigger"
+                         @mouseenter="(e) => showTip(e, t('workbench.tips.vmTimbre'))"
+                         @mouseleave="hideTip"
+                         @focus="(e) => showTip(e, t('workbench.tips.vmTimbre'))"
+                         @blur="hideTip"
+                       >
+                         <Info size="14" />
+                       </button>
                     </label>
                     <span class="value-badge">{{ form.voice_modify.timbre }}</span>
                   </div>
@@ -594,7 +824,19 @@ onMounted(() => {
                 </div>
 
                 <div class="form-group">
-                  <label>{{ t('workbench.labelVmEffects') }}</label>
+                  <label class="label-with-tip">
+                    <span>{{ t('workbench.labelVmEffects') }}</span>
+                    <button
+                      type="button"
+                      class="tip-trigger"
+                      @mouseenter="(e) => showTip(e, t('workbench.tips.vmEffects'))"
+                      @mouseleave="hideTip"
+                      @focus="(e) => showTip(e, t('workbench.tips.vmEffects'))"
+                      @blur="hideTip"
+                    >
+                      <Info size="14" />
+                    </button>
+                  </label>
                   <select v-model="form.sound_effects" class="custom-select">
                     <option v-for="opt in soundEffectOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                   </select>
@@ -633,13 +875,27 @@ onMounted(() => {
           </div>
 
           <div class="workspace-content">
-            <textarea 
-              v-if="inputType === 'text'"
-              v-model="form.text" 
-              :placeholder="t('workbench.phText')" 
-              class="main-textarea"
-              spellcheck="false"
-            ></textarea>
+            <div v-if="inputType === 'text'" class="text-input-wrap">
+              <div class="text-input-label">
+                <span>{{ t('workbench.labelText') }}</span>
+                <button
+                  type="button"
+                  class="tip-trigger"
+                  @mouseenter="(e) => showTip(e, t('workbench.tips.text'))"
+                  @mouseleave="hideTip"
+                  @focus="(e) => showTip(e, t('workbench.tips.text'))"
+                  @blur="hideTip"
+                >
+                  <Info size="14" />
+                </button>
+              </div>
+              <textarea 
+                v-model="form.text" 
+                :placeholder="t('workbench.phText')" 
+                class="main-textarea"
+                spellcheck="false"
+              ></textarea>
+            </div>
 
             <div v-else class="file-upload-zone">
               <input 
@@ -697,6 +953,19 @@ onMounted(() => {
           />
         </div>
       </div>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="tipOpen"
+      ref="tipEl"
+      class="app-tooltip"
+      :class="`is-${tipPlacement}`"
+      :style="{ top: tipTop + 'px', left: tipLeft + 'px' }"
+      role="tooltip"
+    >
+      {{ tipText }}
     </div>
   </Teleport>
 </template>
@@ -767,20 +1036,31 @@ onMounted(() => {
   gap: var(--space-2);
 }
 
-.tooltip {
+.tip-trigger {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
   color: var(--text-tertiary);
-  cursor: help;
-  position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
 }
 
-.tooltip::after {
-  content: attr(data-tip);
-  position: absolute;
-  left: 50%;
-  top: calc(100% + 10px);
-  transform: translateX(-50%);
+.tip-trigger:hover {
+  color: var(--text-secondary);
+}
+
+.tip-trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-bg);
+}
+
+.app-tooltip {
+  position: fixed;
+  z-index: 10001;
+  max-width: min(320px, calc(100vw - 24px));
   background: rgba(17, 24, 39, 0.95);
   color: #fff;
   font-size: 0.75rem;
@@ -788,38 +1068,41 @@ onMounted(() => {
   padding: 8px 10px;
   border-radius: 8px;
   box-shadow: var(--shadow-md);
+  pointer-events: none;
   white-space: normal;
-  width: max-content;
-  max-width: min(320px, 80vw);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  z-index: 10;
 }
 
-.tooltip::before {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: calc(100% + 4px);
-  transform: translateX(-50%);
-  border: 6px solid transparent;
-  border-bottom-color: rgba(17, 24, 39, 0.95);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-  z-index: 10;
+.voice-trigger {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.95rem;
 }
 
-.tooltip:hover::after,
-.tooltip:focus-visible::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(2px);
+.voice-trigger:hover {
+  border-color: var(--text-tertiary);
 }
 
-.tooltip:hover::before,
-.tooltip:focus-visible::before {
-  opacity: 1;
+.voice-trigger-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.voice-trigger-icon {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
 }
 
 .slider-group {
@@ -1083,6 +1366,27 @@ onMounted(() => {
   position: relative;
   display: flex;
   flex-direction: column;
+}
+
+.text-input-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.text-input-label {
+  padding: var(--space-4) var(--space-6) 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.text-input-wrap .main-textarea {
+  padding-top: var(--space-3);
 }
 
 .main-textarea {

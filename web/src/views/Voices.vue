@@ -580,7 +580,7 @@ onMounted(fetchData)
   margin-right: 4px;
 }
 
-.search-input {
+.search-bar input.search-input {
   width: 100%;
   padding: 8px 30px 8px 32px;
   border-radius: var(--radius-full);

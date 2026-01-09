@@ -1,14 +1,16 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import axios from 'axios'
-import { Download, Trash2, Search, RotateCcw, Filter } from 'lucide-vue-next'
+import { Download, Trash2, Search, RotateCcw, Filter, ChevronDown, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import VoiceSelector from '../components/VoiceSelector.vue'
 
 const { t } = useI18n()
 
 const tasks = ref([])
 const voices = ref([])
 const loading = ref(false)
+const showVoiceSelector = ref(false)
 
 const filters = ref({
   text: '',
@@ -21,6 +23,31 @@ const filters = ref({
 const api = axios.create({
   baseURL: import.meta.env.DEV ? 'http://localhost:8080/api' : '/api'
 })
+
+const selectedVoiceLabel = computed(() => {
+  if (!filters.value.voice_id) return t('audioManagement.filters.allVoices')
+  const found = voices.value.find(v => v.voice_id === filters.value.voice_id)
+  return found?.name || filters.value.voice_id
+})
+
+const openVoiceSelector = () => {
+  showVoiceSelector.value = true
+}
+
+const closeVoiceSelector = () => {
+  showVoiceSelector.value = false
+}
+
+const selectAllVoices = () => {
+  filters.value.voice_id = ''
+  closeVoiceSelector()
+  fetchTasks()
+}
+
+const onVoicePicked = () => {
+  closeVoiceSelector()
+  fetchTasks()
+}
 
 const fetchVoices = async () => {
   try {
@@ -135,12 +162,10 @@ onUnmounted(() => {
 
         <div class="filter-group">
           <label>{{ t('audioManagement.filters.voice') }}</label>
-          <select v-model="filters.voice_id" @change="fetchTasks">
-            <option value="">{{ t('audioManagement.filters.allVoices') }}</option>
-            <option v-for="v in voices" :key="v.voice_id" :value="v.voice_id">
-              {{ v.name }}
-            </option>
-          </select>
+          <button type="button" class="voice-filter-btn" @click="openVoiceSelector">
+            <span class="voice-filter-text">{{ selectedVoiceLabel }}</span>
+            <ChevronDown size="16" class="voice-filter-icon" />
+          </button>
         </div>
 
         <div class="filter-group">
@@ -212,6 +237,32 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div v-if="showVoiceSelector" class="voice-picker-overlay" @click.self="closeVoiceSelector">
+        <div class="voice-picker-modal" role="dialog" aria-modal="true">
+          <header class="voice-picker-header">
+            <div class="voice-picker-title">音色选择</div>
+            <button class="voice-picker-close" type="button" @click="closeVoiceSelector" aria-label="Close">
+              <X size="16" />
+            </button>
+          </header>
+          <div class="voice-picker-body">
+            <div class="voice-picker-toolbar">
+              <button type="button" class="btn btn-secondary" @click="selectAllVoices">
+                {{ t('audioManagement.filters.allVoices') }}
+              </button>
+            </div>
+            <VoiceSelector
+              v-model="filters.voice_id"
+              :voices="voices"
+              height="100%"
+              @select="onVoicePicked"
+            />
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -256,6 +307,110 @@ onUnmounted(() => {
   background: var(--bg-tertiary);
   color: var(--text-primary);
   min-width: 150px;
+}
+
+.voice-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  min-width: 150px;
+  height: 38px;
+  text-align: left;
+}
+
+.voice-filter-btn:hover {
+  border-color: var(--text-tertiary);
+}
+
+.voice-filter-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voice-filter-icon {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+}
+
+.voice-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+}
+
+.voice-picker-modal {
+  width: min(980px, calc(100vw - 96px));
+  height: min(680px, calc(100vh - 120px));
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.voice-picker-header {
+  padding: var(--space-5) var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
+
+.voice-picker-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.voice-picker-close {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.voice-picker-close:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+}
+
+.voice-picker-body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.voice-picker-toolbar {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .filter-actions {
