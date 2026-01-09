@@ -49,24 +49,8 @@ func ListSynthesisTasks(c *gin.Context) {
 }
 
 type GenerateSpeechRequest struct {
-	Text              string         `json:"text"`
-	TextFileID        int64          `json:"text_file_id"`
-	VoiceID           string         `json:"voice_id" binding:"required"`
-	Speed             float64        `json:"speed"`
-	Vol               float64        `json:"vol"`
-	KeyID             uint           `json:"key_id"`
-	Model             string         `json:"model"`
-	Pitch             int            `json:"pitch"`
-	Emotion           string         `json:"emotion"`
-	LanguageBoost     string         `json:"language_boost"`
-	SampleRate        int64          `json:"sample_rate"`
-	Bitrate           int64          `json:"bitrate"`
-	Format            string         `json:"format"`
-	Channel           int64          `json:"channel"`
-	AigcWatermark     bool           `json:"aigc_watermark"`
-	VoiceModify       map[string]int `json:"voice_modify"` // pitch, intensity, timbre
-	SoundEffects      string         `json:"sound_effects"`
-	PronunciationDict map[string]any `json:"pronunciation_dict"`
+	KeyID uint `json:"key_id"`
+	minimax.T2ARequest
 }
 
 func GenerateSpeech(c *gin.Context) {
@@ -87,78 +71,31 @@ func GenerateSpeech(c *gin.Context) {
 		return
 	}
 
-	// client := minimax.NewClient(apiKey.Key)
-	_ = minimax.NewClient(apiKey.Key)
+	client := minimax.NewClient(apiKey.Key)
 
-	// Voice Modify
-	var voiceModify minimax.VoiceModify
-	if req.VoiceModify != nil {
-		voiceModify.Pitch = req.VoiceModify["pitch"]
-		voiceModify.Intensity = req.VoiceModify["intensity"]
-		voiceModify.Timbre = req.VoiceModify["timbre"]
-	}
-	voiceModify.SoundEffects = req.SoundEffects
+	t2aReq := &req.T2ARequest
 
-	// Audio Setting
-	audioSetting := minimax.AudioSetting{
-		AudioSampleRate: 32000,
-		Bitrate:         128000,
-		Format:          "mp3",
-		Channel:         1,
+	resp, err := client.T2AAsync(t2aReq)
+	task := model.SynthesisTask{
+		Text:    req.Text,
+		VoiceID: req.VoiceSetting.VoiceID,
+		Status:  "processing",
 	}
-	if req.SampleRate > 0 {
-		audioSetting.AudioSampleRate = req.SampleRate
-	}
-	if req.Bitrate > 0 {
-		audioSetting.Bitrate = req.Bitrate
-	}
-	if req.Format != "" {
-		audioSetting.Format = req.Format
-	}
-	if req.Channel > 0 {
-		audioSetting.Channel = req.Channel
+	if req.TextFileID > 0 {
+		task.Text = fmt.Sprintf("FileID: %d", req.TextFileID)
 	}
 
-	t2aReq := &minimax.T2ARequest{
-		Model:         req.Model,
-		Text:          req.Text,
-		TextFileID:    req.TextFileID,
-		LanguageBoost: req.LanguageBoost,
-		VoiceSetting: minimax.VoiceSetting{
-			VoiceID: req.VoiceID,
-			Speed:   req.Speed,
-			Vol:     req.Vol,
-			Pitch:   req.Pitch,
-			Emotion: req.Emotion,
-		},
-		AudioSetting:      audioSetting,
-		VoiceModify:       voiceModify,
-		AigcWatermark:     req.AigcWatermark,
-		PronunciationDict: req.PronunciationDict,
+	if err != nil {
+		task.Status = "failed"
+		task.Error = err.Error()
+		database.DB.Create(&task)
+		ErrorResponse(c, http.StatusInternalServerError, 4, "Async Submit Failed: "+err.Error())
+		return
 	}
 
-	// resp, err := client.T2AAsync(t2aReq)
-	// task := model.SynthesisTask{
-	// 	Text:    req.Text,
-	// 	VoiceID: req.VoiceID,
-	// 	Status:  "processing",
-	// }
-	// if req.TextFileID > 0 {
-	// 	task.Text = fmt.Sprintf("FileID: %d", req.TextFileID)
-	// }
-
-	// if err != nil {
-	// 	task.Status = "failed"
-	// 	task.Error = err.Error()
-	// 	database.DB.Create(&task)
-	// 	ErrorResponse(c, http.StatusInternalServerError, 4, "Async Submit Failed: "+err.Error())
-	// 	return
-	// }
-
-	// task.TaskID = resp.TaskID
-	// database.DB.Create(&task)
-	// SuccessResponse(c, task)
-	SuccessResponse(c, t2aReq)
+	task.TaskID = resp.TaskID
+	database.DB.Create(&task)
+	SuccessResponse(c, task)
 }
 
 func CheckTaskStatus(c *gin.Context) {

@@ -21,11 +21,12 @@ type VoiceModify struct {
 }
 
 type VoiceSetting struct {
-	VoiceID string  `json:"voice_id"`
-	Speed   float64 `json:"speed,omitempty"`
-	Vol     float64 `json:"vol,omitempty"`
-	Pitch   int     `json:"pitch,omitempty"`
-	Emotion string  `json:"emotion,omitempty"` // happy, sad, etc.
+	VoiceID              string  `json:"voice_id"`
+	Speed                float64 `json:"speed,omitempty"`
+	Vol                  float64 `json:"vol,omitempty"`
+	Pitch                int     `json:"pitch,omitempty"`
+	Emotion              string  `json:"emotion,omitempty"` // happy, sad, etc.
+	EnglishNormalization bool    `json:"english_normalization,omitempty"`
 }
 
 type AudioSetting struct {
