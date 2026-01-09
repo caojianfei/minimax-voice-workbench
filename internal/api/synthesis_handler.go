@@ -1,8 +1,11 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
+	"mime/multipart"
 	"minimax-voice-workbench/internal/database"
 	"minimax-voice-workbench/internal/model"
 	"minimax-voice-workbench/pkg/minimax"
@@ -10,11 +13,14 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
+// ListSynthesisTasks 获取语音合成任务列表
 func ListSynthesisTasks(c *gin.Context) {
 	var tasks []model.SynthesisTask
 	query := database.DB.Model(&model.SynthesisTask{})
@@ -53,6 +59,7 @@ type GenerateSpeechRequest struct {
 	minimax.T2ARequest
 }
 
+// GenerateSpeech 提交异步语音合成任务
 func GenerateSpeech(c *gin.Context) {
 	var req GenerateSpeechRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -75,11 +82,17 @@ func GenerateSpeech(c *gin.Context) {
 
 	t2aReq := &req.T2ARequest
 
+	payloadBytes, _ := json.Marshal(t2aReq)
+
 	resp, err := client.T2AAsync(t2aReq)
 	task := model.SynthesisTask{
-		Text:    req.Text,
-		VoiceID: req.VoiceSetting.VoiceID,
-		Status:  "processing",
+		Text:           req.Text,
+		VoiceID:        req.VoiceSetting.VoiceID,
+		Format:         req.AudioSetting.Format,
+		SampleRate:     req.AudioSetting.AudioSampleRate,
+		Channel:        req.AudioSetting.Channel,
+		Status:         "processing",
+		RequestPayload: string(payloadBytes),
 	}
 	if req.TextFileID > 0 {
 		task.Text = fmt.Sprintf("FileID: %d", req.TextFileID)
@@ -98,12 +111,35 @@ func GenerateSpeech(c *gin.Context) {
 	SuccessResponse(c, task)
 }
 
+var taskMutexes sync.Map
+
+// CheckTaskStatus 检查异步任务状态并下载结果
 func CheckTaskStatus(c *gin.Context) {
 	idStr := c.Param("id")
 	id, _ := strconv.Atoi(idStr)
 	keyIDStr := c.Query("key_id")
 
+	// First check: Read directly from DB to see if it's already done
 	var task model.SynthesisTask
+	if err := database.DB.First(&task, id).Error; err != nil {
+		ErrorResponse(c, http.StatusNotFound, 1, "Task not found")
+		return
+	}
+
+	if task.Status == "success" || task.Status == "failed" {
+		SuccessResponse(c, task)
+		return
+	}
+
+	// Concurrency control: Lock based on task ID
+	// This prevents multiple requests from triggering download simultaneously
+	muVal, _ := taskMutexes.LoadOrStore(id, &sync.Mutex{})
+	mu := muVal.(*sync.Mutex)
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Second check: Re-fetch task status after acquiring lock
+	// Another request might have finished the task while we were waiting for the lock
 	if err := database.DB.First(&task, id).Error; err != nil {
 		ErrorResponse(c, http.StatusNotFound, 1, "Task not found")
 		return
@@ -135,7 +171,8 @@ func CheckTaskStatus(c *gin.Context) {
 
 	statusLower := qResp.Status
 
-	if statusLower == "Success" {
+	switch statusLower {
+	case "Success":
 		fResp, err := client.RetrieveFile(qResp.FileID)
 		if err != nil {
 			task.Error = "Retrieve failed: " + err.Error()
@@ -147,10 +184,10 @@ func CheckTaskStatus(c *gin.Context) {
 				task.Status = "success"
 			}
 		}
-	} else if statusLower == "Failed" || statusLower == "Expired" {
+	case "Failed", "Expired":
 		task.Status = "failed"
 		task.Error = "Remote status: " + statusLower
-	} else {
+	default:
 		task.Status = "processing"
 	}
 
@@ -158,6 +195,7 @@ func CheckTaskStatus(c *gin.Context) {
 	SuccessResponse(c, task)
 }
 
+// downloadFile 从指定 URL 下载音频文件并保存到本地
 func downloadFile(url string, task *model.SynthesisTask) error {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -165,9 +203,19 @@ func downloadFile(url string, task *model.SynthesisTask) error {
 	}
 	defer resp.Body.Close()
 
-	outputDir := "generated"
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	outputDir := filepath.Join("generated", "audios")
 	os.MkdirAll(outputDir, 0755)
-	filename := fmt.Sprintf("async_audio_%d.mp3", time.Now().UnixNano())
+
+	ext := task.Format
+	if ext == "" {
+		ext = "mp3"
+	}
+	filename := fmt.Sprintf("audio_%d.%s", task.ID, ext)
+
 	outputPath := filepath.Join(outputDir, filename)
 
 	out, err := os.Create(outputPath)
@@ -176,14 +224,30 @@ func downloadFile(url string, task *model.SynthesisTask) error {
 	}
 	defer out.Close()
 
-	if _, err := io.Copy(out, resp.Body); err != nil {
-		return err
+	contentType := resp.Header.Get("Content-Type")
+	mediaType, params, parseErr := mime.ParseMediaType(contentType)
+	if parseErr == nil && strings.HasPrefix(mediaType, "multipart/") && params["boundary"] != "" {
+		reader := multipart.NewReader(resp.Body, params["boundary"])
+		part, err := reader.NextPart()
+		if err != nil {
+			return err
+		}
+		defer part.Close()
+
+		if _, err := io.Copy(out, part); err != nil {
+			return err
+		}
+	} else {
+		if _, err := io.Copy(out, resp.Body); err != nil {
+			return err
+		}
 	}
 
-	task.Output = "/files/" + filename
+	task.Output = "/files/audios/" + filename
 	return nil
 }
 
+// DeleteSynthesisTask 删除语音合成任务及其对应的音频文件
 func DeleteSynthesisTask(c *gin.Context) {
 	idStr := c.Param("id")
 	id, _ := strconv.Atoi(idStr)
@@ -203,6 +267,7 @@ func DeleteSynthesisTask(c *gin.Context) {
 	SuccessResponse(c, nil)
 }
 
+// UploadTextFile 上传文本文件用于异步语音合成
 func UploadTextFile(c *gin.Context) {
 	keyIDStr := c.PostForm("key_id")
 	keyID, _ := strconv.Atoi(keyIDStr)

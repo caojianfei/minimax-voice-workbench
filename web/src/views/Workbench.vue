@@ -1,18 +1,20 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { Play, Download, Trash2, Cpu, ChevronDown, ChevronUp, Info, Key, Library, X, RotateCcw } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import VoiceSelector from '../components/VoiceSelector.vue'
 
 const { t } = useI18n()
+const router = useRouter()
 
-const tasks = ref([])
 const voices = ref([])
 const keys = ref([])
 const loading = ref(false)
 const showAdvanced = ref(false)
 const showVoiceSelector = ref(false)
+const showConfirmDialog = ref(false)
 const tipOpen = ref(false)
 const tipText = ref('')
 const tipTop = ref(0)
@@ -104,6 +106,50 @@ const soundEffectOptions = computed(() => [
   { value: 'robotic', label: t('workbench.options.robotic') },
 ])
 
+const languageBoostOptions = computed(() => [
+  { value: 'auto', label: t('workbench.options.auto') },
+  { value: 'Chinese', label: t('workbench.options.chinese') },
+  { value: 'Chinese,Yue', label: t('workbench.options.chinese_yue') },
+  { value: 'English', label: t('workbench.options.english') },
+  { value: 'Japanese', label: t('workbench.options.japanese') },
+  { value: 'Arabic', label: t('workbench.options.arabic') },
+  { value: 'Russian', label: t('workbench.options.russian') },
+  { value: 'Spanish', label: t('workbench.options.spanish') },
+  { value: 'French', label: t('workbench.options.french') },
+  { value: 'Portuguese', label: t('workbench.options.portuguese') },
+  { value: 'German', label: t('workbench.options.german') },
+  { value: 'Turkish', label: t('workbench.options.turkish') },
+  { value: 'Dutch', label: t('workbench.options.dutch') },
+  { value: 'Ukrainian', label: t('workbench.options.ukrainian') },
+  { value: 'Vietnamese', label: t('workbench.options.vietnamese') },
+  { value: 'Indonesian', label: t('workbench.options.indonesian') },
+  { value: 'Italian', label: t('workbench.options.italian') },
+  { value: 'Korean', label: t('workbench.options.korean') },
+  { value: 'Thai', label: t('workbench.options.thai') },
+  { value: 'Polish', label: t('workbench.options.polish') },
+  { value: 'Romanian', label: t('workbench.options.romanian') },
+  { value: 'Greek', label: t('workbench.options.greek') },
+  { value: 'Czech', label: t('workbench.options.czech') },
+  { value: 'Finnish', label: t('workbench.options.finnish') },
+  { value: 'Hindi', label: t('workbench.options.hindi') },
+  { value: 'Bulgarian', label: t('workbench.options.bulgarian') },
+  { value: 'Danish', label: t('workbench.options.danish') },
+  { value: 'Hebrew', label: t('workbench.options.hebrew') },
+  { value: 'Malay', label: t('workbench.options.malay') },
+  { value: 'Persian', label: t('workbench.options.persian') },
+  { value: 'Slovak', label: t('workbench.options.slovak') },
+  { value: 'Swedish', label: t('workbench.options.swedish') },
+  { value: 'Croatian', label: t('workbench.options.croatian') },
+  { value: 'Filipino', label: t('workbench.options.filipino') },
+  { value: 'Hungarian', label: t('workbench.options.hungarian') },
+  { value: 'Norwegian', label: t('workbench.options.norwegian') },
+  { value: 'Slovenian', label: t('workbench.options.slovenian') },
+  { value: 'Catalan', label: t('workbench.options.catalan') },
+  { value: 'Nynorsk', label: t('workbench.options.nynorsk') },
+  { value: 'Tamil', label: t('workbench.options.tamil') },
+  { value: 'Afrikaans', label: t('workbench.options.afrikaans') },
+])
+
 const api = axios.create({
   baseURL: import.meta.env.DEV ? 'http://localhost:8080/api' : '/api'
 })
@@ -190,16 +236,12 @@ const handleFileUpload = async (event) => {
     }
 }
 
-let pollInterval = null
-
 const init = async () => {
   try {
-    const [tRes, vRes, kRes] = await Promise.all([
-      api.get('/synthesis'),
+    const [vRes, kRes] = await Promise.all([
       api.get('/voices'),
       api.get('/keys')
     ])
-    tasks.value = tRes.data.data
     voices.value = vRes.data.data
     keys.value = kRes.data.data
 
@@ -209,22 +251,9 @@ const init = async () => {
     }
     // if (keys.value.length > 0) form.value.key_id = keys.value[0].id
     
-    startPolling()
   } catch (e) {
     console.error(e)
   }
-}
-
-const startPolling = () => {
-  if (pollInterval) clearInterval(pollInterval)
-  pollInterval = setInterval(async () => {
-    try {
-      const res = await api.get('/synthesis')
-      tasks.value = res.data.data
-    } catch (e) {
-      console.error('Polling failed', e)
-    }
-  }, 5000)
 }
 
 const closeVoiceSelector = () => {
@@ -245,7 +274,6 @@ const onWindowKeydown = (e) => {
 }
 
 onUnmounted(() => {
-  if (pollInterval) clearInterval(pollInterval)
   window.removeEventListener('keydown', onWindowKeydown)
   window.removeEventListener('scroll', onTipViewportChange, true)
   window.removeEventListener('resize', onTipViewportChange)
@@ -384,12 +412,22 @@ const generate = async () => {
   loading.value = true
   try {
     const res = await api.post('/synthesis', payload)
-    alert(t('workbench.statusSuccess') + ' - Task ID: ' + res.data.data.id)
+    showConfirmDialog.value = true
+    // alert(t('workbench.statusSuccess') + ' - Task ID: ' + res.data.data.id)
   } catch (e) {
     alert(t('workbench.alertGenFail') + ': ' + (e.response?.data?.message || e.message))
   } finally {
     loading.value = false
   }
+}
+
+const handleConfirm = () => {
+  router.push('/audio-management')
+  showConfirmDialog.value = false
+}
+
+const handleCancel = () => {
+  showConfirmDialog.value = false
 }
 
 watch(
@@ -588,10 +626,9 @@ onMounted(() => {
                     </button>
                   </label>
                   <select v-model="form.language_boost" class="custom-select">
-                    <option value="auto">{{ t('workbench.options.auto') }}</option>
-                    <option value="Chinese">{{ t('workbench.options.chinese') }}</option>
-                    <option value="English">{{ t('workbench.options.english') }}</option>
-                    <option value="Japanese">{{ t('workbench.options.japanese') }}</option>
+                    <option v-for="opt in languageBoostOptions" :key="opt.value" :value="opt.value">
+                      {{ opt.label }}
+                    </option>
                   </select>
                 </div>
 
@@ -941,6 +978,26 @@ onMounted(() => {
       </main>
     </div>
   </div>
+
+  <Teleport to="body">
+    <div v-if="showConfirmDialog" class="confirm-dialog-overlay" @click.self="handleCancel">
+      <div class="confirm-dialog-modal" role="dialog" aria-modal="true">
+        <header class="confirm-dialog-header">
+          <div class="confirm-dialog-title">任务已提交</div>
+          <button class="confirm-dialog-close" type="button" @click="handleCancel" aria-label="Close">
+            <X size="16" />
+          </button>
+        </header>
+        <div class="confirm-dialog-body">
+          <p>音频合成任务已生成，可在音频管理页面查看合成进度，是否立刻跳转到音频管理页面？</p>
+        </div>
+        <div class="confirm-dialog-footer">
+          <button class="btn-cancel" @click="handleCancel">关闭</button>
+          <button class="btn-confirm" @click="handleConfirm">确定</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 
   <Teleport to="body">
     <div v-if="showVoiceSelector" class="voice-picker-overlay" @click.self="closeVoiceSelector">
@@ -1625,5 +1682,94 @@ onMounted(() => {
   .config-section {
     max-width: 100%;
   }
+}
+
+.confirm-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-dialog-modal {
+  width: 400px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.confirm-dialog-header {
+  padding: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.confirm-dialog-title {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.confirm-dialog-close {
+  color: var(--text-tertiary);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 4px;
+}
+.confirm-dialog-close:hover {
+  color: var(--text-primary);
+}
+
+.confirm-dialog-body {
+  padding: var(--space-5);
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.confirm-dialog-footer {
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.btn-cancel, .btn-confirm {
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-cancel {
+  background: white;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+.btn-cancel:hover {
+  border-color: var(--text-tertiary);
+  color: var(--text-primary);
+}
+
+.btn-confirm {
+  background: var(--primary);
+  color: white;
+  border: 1px solid transparent;
+}
+.btn-confirm:hover {
+  background: var(--primary-hover);
 }
 </style>

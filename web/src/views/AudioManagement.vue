@@ -4,6 +4,7 @@ import axios from 'axios'
 import { Download, Trash2, Search, RotateCcw, Filter, ChevronDown, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import VoiceSelector from '../components/VoiceSelector.vue'
+import SmartAudioPlayer from '../components/SmartAudioPlayer.vue'
 
 const { t } = useI18n()
 
@@ -223,7 +224,12 @@ onUnmounted(() => {
           </div>
           <div class="task-footer">
             <div class="audio-wrapper" v-if="task.status === 'success'">
-              <audio controls :src="task.output" class="audio-player"></audio>
+              <SmartAudioPlayer 
+                :src="task.output" 
+                :format="task.format"
+                :sample-rate="task.sample_rate"
+                :channels="task.channel"
+              />
             </div>
             <div class="actions">
               <a v-if="task.status === 'success'" :href="task.output" download class="btn-icon" title="Download">

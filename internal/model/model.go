@@ -34,14 +34,18 @@ type Voice struct {
 
 // SynthesisTask tracks text-to-speech tasks
 type SynthesisTask struct {
-	ID        uint           `gorm:"primaryKey" json:"id"`
-	TaskID    int64          `gorm:"index" json:"task_id"` // For async tasks
-	Text      string         `gorm:"type:text" json:"text"`
-	VoiceID   string         `gorm:"size:100" json:"voice_id"`
-	Output    string         `gorm:"size:255" json:"output"` // Path to generated audio
-	Status    string         `gorm:"size:20;default:'pending'" json:"status"`
-	Error     string         `gorm:"size:255" json:"error,omitempty"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	ID             uint           `gorm:"primaryKey" json:"id"`
+	TaskID         int64          `gorm:"index" json:"task_id"` // For async tasks
+	Text           string         `gorm:"type:text" json:"text"`
+	VoiceID        string         `gorm:"size:100" json:"voice_id"`
+	Format         string         `gorm:"size:10" json:"format"`  // mp3, pcm, flac
+	SampleRate     int64          `json:"sample_rate"`            // e.g. 32000
+	Channel        int64          `json:"channel"`                // 1 or 2
+	Output         string         `gorm:"size:255" json:"output"` // Path to generated audio
+	Status         string         `gorm:"size:20;default:'pending'" json:"status"`
+	Error          string         `gorm:"size:255" json:"error,omitempty"`
+	RequestPayload string         `gorm:"type:text" json:"request_payload"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 }
