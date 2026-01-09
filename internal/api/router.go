@@ -32,6 +32,10 @@ func SetupRouter(r *gin.Engine) {
 		api.POST("/voices/design", DesignVoice)
 		api.DELETE("/voices/:id", DeleteVoice)
 
+		// Favorites
+		api.GET("/favorites", ListFavorites)
+		api.POST("/favorites/:voice_id/toggle", ToggleFavorite)
+
 		// Synthesis
 		api.GET("/synthesis", ListSynthesisTasks)
 		api.POST("/synthesis", GenerateSpeech)
