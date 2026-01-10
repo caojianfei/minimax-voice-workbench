@@ -1,8 +1,9 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { Search, Star, Library, User, Heart, X, Check } from 'lucide-vue-next'
+import { Search, Star, Library, User, Heart, X, Check, Play, Pause, Loader2 } from 'lucide-vue-next'
 import { useFavorites } from '../composables/useFavorites'
 import { useI18n } from 'vue-i18n'
+import axios from 'axios'
 
 const props = defineProps({
   modelValue: {
@@ -23,12 +24,18 @@ const emit = defineEmits(['update:modelValue', 'select', 'favorite'])
 const { t } = useI18n()
 const { toggleFavorite, isFavorite } = useFavorites()
 
+const api = axios.create({
+  baseURL: import.meta.env.DEV ? 'http://localhost:8080/api' : '/api'
+})
+
 // State
 const activeTab = ref('all')
 const searchQuery = ref('')
 const debouncedQuery = ref('')
 const searchInput = ref(null)
 const scrollContainer = ref(null)
+const playingAudio = ref(null)
+const generatingPreview = ref(null)
 
 // Virtual Scroll State
 const itemHeight = ref(80) // px
@@ -103,6 +110,69 @@ const handleFavorite = (e, voice) => {
   e.stopPropagation()
   toggleFavorite(voice.voice_id)
   emit('favorite', voice)
+}
+
+const toggleAudio = async (e, voice) => {
+  e.stopPropagation()
+  
+  if (!voice.preview && !voice.demo_audio) {
+    await generatePreview(voice)
+    return
+  }
+
+  const audioId = 'audio-preview-' + voice.voice_id
+  let audioEl = document.getElementById(audioId)
+  
+  // Create audio element if not exists (since we are in virtual scroll, we might need to handle this carefully)
+  // But wait, virtual scroll removes elements.
+  // Ideally we should have a single global audio player or one persistent audio element.
+  // But for now, let's try to find it. If not found, create one?
+  // Actually, inserting <audio> in the row is tricky with virtual scroll.
+  // Better approach: have one hidden <audio> in the component root and switch src.
+  
+  // Let's use a single audio element ref
+  if (!globalAudioEl.value) return
+
+  if (playingAudio.value === voice.voice_id) {
+    globalAudioEl.value.pause()
+    playingAudio.value = null
+  } else {
+    globalAudioEl.value.src = voice.preview || voice.demo_audio
+    globalAudioEl.value.play()
+    playingAudio.value = voice.voice_id
+  }
+}
+
+const generatePreview = async (voice) => {
+  generatingPreview.value = voice.voice_id
+  try {
+    const res = await api.post('/voices/preview', {
+      voice_id: voice.voice_id,
+      // No key_id passed, relying on default key
+    })
+    
+    // Update local voice data
+    voice.preview = res.data.data.preview
+    
+    // Play
+    if (globalAudioEl.value) {
+        globalAudioEl.value.src = voice.preview
+        globalAudioEl.value.play()
+        playingAudio.value = voice.voice_id
+    }
+    
+  } catch (e) {
+    console.error(e)
+    // alert('Failed to generate preview')
+  } finally {
+    generatingPreview.value = null
+  }
+}
+
+const globalAudioEl = ref(null)
+// Handle audio ended
+const onAudioEnded = () => {
+    playingAudio.value = null
 }
 
 const typeLabel = (voice) => {
@@ -228,6 +298,7 @@ defineExpose({
       class="list"
       @scroll="onScroll"
     >
+      <audio ref="globalAudioEl" @ended="onAudioEnded" style="display: none"></audio>
       <div v-if="filteredVoices.length > 0" :style="{ height: totalHeight + 'px' }" class="list-inner">
         <div 
           v-for="voice in visibleItems" 
@@ -250,6 +321,16 @@ defineExpose({
           </div>
 
           <div class="actions">
+            <button 
+              class="icon-btn" 
+              type="button"
+              @click="(e) => toggleAudio(e, voice)"
+              :disabled="generatingPreview === voice.voice_id"
+            >
+              <Loader2 v-if="generatingPreview === voice.voice_id" class="animate-spin icon-sm" />
+              <component v-else :is="playingAudio === voice.voice_id ? Pause : Play" class="icon-sm" :fill="playingAudio === voice.voice_id ? 'currentColor' : 'none'" />
+            </button>
+
             <button
               class="select-btn"
               type="button"
@@ -584,12 +665,17 @@ defineExpose({
 }
 
 .fav-star.active {
-  color: var(--warning);
-  fill: var(--warning);
-  transform: scale(1.1);
-}
+    color: var(--warning);
+    fill: var(--warning);
+    transform: scale(1.1);
+  }
 
-.empty {
+  .icon-sm {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .empty {
   height: 100%;
   display: flex;
   flex-direction: column;

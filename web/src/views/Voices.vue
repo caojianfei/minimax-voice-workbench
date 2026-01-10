@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import axios from 'axios'
-import { Plus, Trash2, Play, Mic, Cloud, Palette, Monitor, Copy, Wand2, Pause, Heart, Star, Search, X } from 'lucide-vue-next'
+import { Plus, Trash2, Play, Mic, Cloud, Palette, Monitor, Copy, Wand2, Pause, Heart, Star, Search, X, Loader2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useFavorites } from '../composables/useFavorites'
 
@@ -15,6 +15,7 @@ const modalMode = ref('clone') // 'clone' or 'design'
 const loading = ref(false)
 const currentTab = ref('system')
 const playingAudio = ref(null)
+const generatingPreview = ref(null)
 const sampleFileInput = ref(null)
 const promptFileInput = ref(null)
 const searchQuery = ref('')
@@ -242,7 +243,12 @@ const syncVoices = async () => {
   }
 }
 
-const toggleAudio = (voice) => {
+const toggleAudio = async (voice) => {
+  if (!voice.preview && !voice.demo_audio) {
+    await generatePreview(voice)
+    return
+  }
+
   const audioId = 'audio-' + voice.voice_id
   const audioEl = document.getElementById(audioId)
   
@@ -265,6 +271,29 @@ const toggleAudio = (voice) => {
     audioEl.onended = () => {
       playingAudio.value = null
     }
+  }
+}
+
+const generatePreview = async (voice) => {
+  generatingPreview.value = voice.voice_id
+  try {
+    const res = await api.post('/voices/preview', {
+      voice_id: voice.voice_id,
+      key_id: defaultKey.value?.id
+    })
+    
+    // Update local voice data
+    voice.preview = res.data.data.preview
+    
+    // Wait for DOM update then play
+    setTimeout(() => {
+      toggleAudio(voice)
+    }, 100)
+    
+  } catch (e) {
+    alert(t('voices.alertPreviewFail') || 'Failed to generate preview: ' + (e.response?.data?.message || e.message))
+  } finally {
+    generatingPreview.value = null
   }
 }
 
@@ -357,12 +386,13 @@ onMounted(fetchData)
               </button>
 
               <button 
-                v-if="voice.demo_audio || voice.preview"
                 class="play-btn" 
                 :class="{ playing: playingAudio === voice.voice_id }"
                 @click="toggleAudio(voice)"
+                :disabled="generatingPreview === voice.voice_id"
               >
-                <component :is="playingAudio === voice.voice_id ? Pause : Play" size="20" fill="currentColor" />
+                <Loader2 v-if="generatingPreview === voice.voice_id" class="animate-spin" size="20" />
+                <component v-else :is="playingAudio === voice.voice_id ? Pause : Play" size="20" fill="currentColor" />
               </button>
             </div>
             <audio 

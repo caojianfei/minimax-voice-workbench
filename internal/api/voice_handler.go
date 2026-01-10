@@ -192,23 +192,23 @@ func CloneVoice(c *gin.Context) {
 	// 7. Download demo audio if available
 	var demoAudioPath string
 	if cloneResp.DemoAudio != "" {
-		outputDir := "generated"
+		outputDir := "generated/voices"
 		os.MkdirAll(outputDir, 0755)
 		filename := fmt.Sprintf("demo_%s.mp3", voiceID)
 		demoFilePath := filepath.Join(outputDir, filename)
 
 		// Download from URL
 		if err := downloadAudioFromURL(cloneResp.DemoAudio, demoFilePath); err == nil {
-			demoAudioPath = "/files/" + filename
+			demoAudioPath = "/files/voices/" + filename
 		}
 	}
 
 	// 8. Save to DB
 	voice := model.Voice{
-		Name:      name,
-		VoiceID:   voiceID,
-		Type:      "cloned",
-		DemoAudio: demoAudioPath,
+		Name:    name,
+		VoiceID: voiceID,
+		Type:    "cloned",
+		Preview: demoAudioPath,
 	}
 
 	if err := database.DB.Create(&voice).Error; err != nil {
@@ -277,12 +277,12 @@ func DesignVoice(c *gin.Context) {
 	audioBytes, err := hex.DecodeString(resp.TrialAudio)
 	var previewPath string
 	if err == nil {
-		outputDir := "generated"
+		outputDir := "generated/voices"
 		os.MkdirAll(outputDir, 0755)
 		filename := fmt.Sprintf("preview_%s.mp3", resp.VoiceID)
 		filepathStr := filepath.Join(outputDir, filename)
 		os.WriteFile(filepathStr, audioBytes, 0644)
-		previewPath = "/files/" + filename
+		previewPath = "/files/voices/" + filename
 	}
 
 	// Save Voice to DB
@@ -384,4 +384,86 @@ func ToggleFavorite(c *gin.Context) {
 	}
 
 	SuccessResponse(c, gin.H{"voice_id": voiceID, "favorite": next})
+}
+
+// GeneratePreviewRequest for generating preview audio
+type GeneratePreviewRequest struct {
+	VoiceID string `json:"voice_id"`
+	KeyID   uint   `json:"key_id"`
+}
+
+// GeneratePreview generates a standard preview audio for a voice
+func GeneratePreview(c *gin.Context) {
+	var req GeneratePreviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, http.StatusBadRequest, 1, "Invalid request")
+		return
+	}
+
+	var voice model.Voice
+	if err := database.DB.Where("voice_id = ?", req.VoiceID).First(&voice).Error; err != nil {
+		ErrorResponse(c, http.StatusNotFound, 2, "Voice not found")
+		return
+	}
+
+	// Check if preview already exists
+	if voice.Preview != "" {
+		SuccessResponse(c, voice)
+		return
+	}
+
+	apiKey, err := getEffectiveKey(req.KeyID)
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, 3, "Invalid API Key")
+		return
+	}
+
+	client := minimax.NewClient(apiKey.Key)
+
+	// T2A Request
+	t2aReq := &minimax.T2ARequest{
+		Model: "speech-2.6-hd",
+		Text:  "你好，欢迎来到赛博笔记的专属频道，让我们一起探索互联网的世界吧。",
+		VoiceSetting: minimax.VoiceSetting{
+			VoiceID: voice.VoiceID,
+			Speed:   1,
+			Vol:     1,
+			Pitch:   0,
+			Emotion: "happy",
+		},
+		AudioSetting: minimax.AudioSetting{
+			AudioSampleRate: 32000,
+			Bitrate:         128000,
+			Format:          "mp3",
+			Channel:         1,
+		},
+	}
+
+	resp, err := client.T2A(t2aReq)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, 4, "T2A Failed: "+err.Error())
+		return
+	}
+
+	// Decode Hex Audio
+	audioBytes, err := hex.DecodeString(resp.Data.Audio)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, 5, "Failed to decode audio")
+		return
+	}
+
+	// Save File
+	outputDir := "generated/voices"
+	os.MkdirAll(outputDir, 0755)
+	filename := fmt.Sprintf("preview_%s.mp3", voice.VoiceID)
+	filepathStr := filepath.Join(outputDir, filename)
+	if err := os.WriteFile(filepathStr, audioBytes, 0644); err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, 6, "Failed to save file")
+		return
+	}
+
+	voice.Preview = "/files/voices/" + filename
+	database.DB.Save(&voice)
+
+	SuccessResponse(c, voice)
 }

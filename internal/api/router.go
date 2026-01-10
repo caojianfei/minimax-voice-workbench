@@ -30,6 +30,7 @@ func SetupRouter(r *gin.Engine) {
 		api.POST("/voices/clone", CloneVoice)
 		api.POST("/voices/sync", SyncVoices)
 		api.POST("/voices/design", DesignVoice)
+		api.POST("/voices/preview", GeneratePreview)
 		api.DELETE("/voices/:id", DeleteVoice)
 
 		// Favorites
