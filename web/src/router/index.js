@@ -48,7 +48,6 @@ const router = createRouter({
   routes
 })
 
-const apiOrigin = import.meta.env.DEV ? 'http://localhost:8080' : ''
 let authEnabledCache = { value: null, ts: 0 }
 
 // normalizeRedirect 将 redirect 参数规范为站内路径
@@ -65,7 +64,7 @@ async function checkAuthStatus() {
   }
 
   try {
-    const res = await fetch(`${apiOrigin}/api/config`, { headers: { 'Accept': 'application/json' } })
+    const res = await fetch('/api/config', { headers: { 'Accept': 'application/json' } })
     if (!res.ok) throw new Error(`config status ${res.status}`)
     const data = await res.json()
     authEnabledCache = { value: Boolean(data?.auth_enabled), ts: now, captcha: !!data?.captcha_enabled, siteKey: data?.captcha_sitekey || '' }

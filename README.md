@@ -70,7 +70,37 @@ npm run dev
 程序启动后会尝试自动打开浏览器。如果未自动打开，请手动访问 `http://localhost:8080`。
 
 #### 命令行参数
-- `--data-dir`: (待实现) 指定数据库和上传文件的存储目录，默认为当前目录。
+
+程序支持以下启动参数，用于配置服务端口、数据存储位置及安全选项：
+
+| 参数 | 说明 | 默认值 |
+| :--- | :--- | :--- |
+| `--port` | 指定服务运行端口 | `8080` |
+| `--data-dir` | 指定数据库和文件的存储目录 | 当前运行目录 |
+| `--config` | 指定配置文件路径 | 无 |
+| `--auth` | 启用简单的账号密码认证 | `false` |
+| `--user` | 设置管理员用户名 (需配合 `--auth` 使用) | 无 |
+| `--password` | 设置管理员密码 (需配合 `--auth` 使用) | 无 |
+| `--verify` | 启用 Cloudflare Turnstile 人机验证 | `false` |
+| `--turnstile-sitekey` | Turnstile Site Key | 无 |
+| `--turnstile-secret` | Turnstile Secret Key | 无 |
+
+#### 启动示例
+
+**1. 基本使用**
+```bash
+./minimax-workbench.exe
+```
+
+**2. 指定端口和数据目录**
+```bash
+./minimax-workbench.exe --port 9090 --data-dir "D:\data\minimax"
+```
+
+**3. 启用访问认证**
+```bash
+./minimax-workbench.exe --auth --user admin --password secret_password
+```
 
 ## 目录结构
 

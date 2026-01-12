@@ -86,8 +86,7 @@ const captchaReady = ref(false)
 // loadConfig fetches /api/config to determine whether Turnstile is required.
 const loadConfig = async () => {
   try {
-    const origin = import.meta.env.DEV ? 'http://localhost:8080' : ''
-    const res = await fetch(`${origin}/api/config`, { headers: { 'Accept': 'application/json' } })
+    const res = await fetch('/api/config', { headers: { 'Accept': 'application/json' } })
     if (!res.ok) return
     const data = await res.json()
     captchaEnabled.value = !!data.captcha_enabled && !!data.captcha_sitekey

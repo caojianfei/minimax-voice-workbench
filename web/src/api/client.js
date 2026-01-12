@@ -2,7 +2,7 @@ import axios from 'axios'
 import router from '../router'
 
 const api = axios.create({
-  baseURL: import.meta.env.DEV ? 'http://localhost:8080/api' : '/api'
+  baseURL: '/api'
 })
 
 api.interceptors.request.use((config) => {
