@@ -97,11 +97,11 @@ watch(() => route.path, () => {
       <div class="sidebar-footer">
         <button @click="toggleTheme" class="nav-item theme-btn">
           <component :is="theme === 'light' ? Moon : Sun" size="20" />
-          <span>{{ theme === 'light' ? 'Dark Mode' : 'Light Mode' }}</span>
+          <span>{{ theme === 'light' ? t('common.darkMode') : t('common.lightMode') }}</span>
         </button>
         <button @click="toggleLang" class="nav-item lang-btn">
           <Languages size="20" />
-          <span>{{ locale === 'zh' ? 'English' : '中文' }}</span>
+          <span>{{ locale === 'zh' ? t('common.language.english') : t('common.language.chinese') }}</span>
         </button>
         <button @click="handleLogout" class="nav-item logout-btn">
           <LogOut size="20" />

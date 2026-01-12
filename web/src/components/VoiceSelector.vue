@@ -40,11 +40,11 @@ const scrollTop = ref(0)
 const containerHeight = ref(400) // Default, will be measured
 
 // Tabs
-const tabs = [
-  { key: 'all', label: '音色库', icon: Library },
-  { key: 'custom', label: '我的音色', icon: User },
-  { key: 'favorites', label: '收藏音色', icon: Heart }
-]
+const tabs = computed(() => [
+  { key: 'all', label: t('voiceSelector.tabs.all'), icon: Library },
+  { key: 'custom', label: t('voiceSelector.tabs.custom'), icon: User },
+  { key: 'favorites', label: t('voiceSelector.tabs.favorites'), icon: Heart }
+])
 
 // Debounce Search
 let debounceTimer = null
@@ -172,9 +172,9 @@ const onAudioEnded = () => {
 }
 
 const typeLabel = (voice) => {
-  if (voice.type === 'system') return '系统音色'
-  if (voice.type === 'cloned') return '复刻音色'
-  if (voice.type === 'generated') return '设计音色'
+  if (voice.type === 'system') return t('voiceSelector.type.system')
+  if (voice.type === 'cloned') return t('voiceSelector.type.cloned')
+  if (voice.type === 'generated') return t('voiceSelector.type.generated')
   return (voice.type || '').toString()
 }
 
@@ -334,14 +334,14 @@ defineExpose({
               @click="(e) => { e.stopPropagation(); handleSelect(voice) }"
             >
               <Check v-if="modelValue === voice.voice_id" class="select-icon" />
-              {{ modelValue === voice.voice_id ? '已选择' : '选择' }}
+              {{ modelValue === voice.voice_id ? t('voiceSelector.select.selected') : t('voiceSelector.select.select') }}
             </button>
 
             <button 
               class="icon-btn"
               type="button"
               @click="(e) => handleFavorite(e, voice)"
-              :aria-label="isFavorite(voice.voice_id) ? 'Unfavorite' : 'Favorite'"
+              :aria-label="isFavorite(voice.voice_id) ? t('voiceSelector.favorite.unfavorite') : t('voiceSelector.favorite.favorite')"
             >
               <Star class="fav-star" :class="{ active: isFavorite(voice.voice_id) }" />
             </button>
@@ -356,10 +356,10 @@ defineExpose({
           <component :is="tabs.find(t => t.key === activeTab).icon" v-else class="empty-icon" />
         </div>
         <p class="empty-title">
-          {{ searchQuery ? 'No voices found' : 'No voices in this category' }}
+          {{ searchQuery ? t('voiceSelector.empty.noVoicesFound') : t('voiceSelector.empty.noVoicesInCategory') }}
         </p>
         <p v-if="activeTab === 'favorites' && !searchQuery" class="empty-sub">
-          Mark voices as favorite to see them here
+          {{ t('voiceSelector.empty.favoritesHint') }}
         </p>
       </div>
     </div>

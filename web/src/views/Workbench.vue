@@ -208,7 +208,7 @@ const handleFileUpload = async (event) => {
     if (!file) return
 
     if (!file.name.endsWith('.txt') && !file.name.endsWith('.zip')) {
-        alert('Only .txt and .zip files are allowed')
+        alert(t('workbench.fileUpload.invalidType'))
         return
     }
 
@@ -224,7 +224,7 @@ const handleFileUpload = async (event) => {
         })
         form.value.text_file_id = res.data.data.file_id
     } catch (e) {
-        alert('Upload failed: ' + (e.response?.data?.message || e.message))
+        alert(t('workbench.fileUpload.uploadFail', { message: e.response?.data?.message || e.message }))
     } finally {
         isUploading.value = false
         // Reset input so same file can be selected again if needed
@@ -448,7 +448,7 @@ onMounted(() => {
     <div class="workbench-header">
       <div class="header-left">
         <h1>{{ t('workbench.title') }}</h1>
-        <p class="subtitle">{{ t('workbench.subtitle') || 'Create high-quality speech with Minimax models' }}</p>
+        <p class="subtitle">{{ t('workbench.subtitle') }}</p>
       </div>
       <div class="header-right">
         <div v-if="defaultKey" class="key-badge">
@@ -464,7 +464,7 @@ onMounted(() => {
         <div class="scroll-container">
           <!-- Model & Voice Card -->
           <div class="card config-card">
-            <h3 class="card-title">{{ t('workbench.sectionBasic') || 'Basic Setup' }}</h3>
+            <h3 class="card-title">{{ t('workbench.sectionBasic') }}</h3>
             
             <div class="form-group">
               <label class="label-with-tip">
@@ -508,7 +508,7 @@ onMounted(() => {
                 class="voice-trigger"
                 @click="showVoiceSelector = true"
               >
-                <span class="voice-trigger-text">{{ voices.find(v => v.voice_id === form.voice_id)?.name || 'Select Voice' }}</span>
+                <span class="voice-trigger-text">{{ voices.find(v => v.voice_id === form.voice_id)?.name || t('workbench.selectVoice') }}</span>
                 <ChevronDown size="16" class="voice-trigger-icon" />
               </button>
             </div>
@@ -516,7 +516,7 @@ onMounted(() => {
 
           <!-- Parameters Card -->
           <div class="card config-card">
-            <h3 class="card-title">{{ t('workbench.sectionParameters') || 'Audio Parameters' }}</h3>
+            <h3 class="card-title">{{ t('workbench.sectionParameters') }}</h3>
             
             <div class="slider-group">
               <div class="slider-header">
@@ -940,9 +940,9 @@ onMounted(() => {
               <label for="file-upload" class="upload-label" :class="{ uploading: isUploading }">
                 <div class="upload-content">
                   <component :is="isUploading ? Cpu : Library" :class="{ 'animate-spin': isUploading }" size="48" />
-                  <h3>{{ isUploading ? t('workbench.btnUploading') : (form.text_file_id ? 'File Ready' : 'Upload Text/Zip') }}</h3>
-                  <p v-if="!isUploading && !form.text_file_id" class="text-muted">Drag & drop or click to upload</p>
-                  <span v-if="form.text_file_id" class="file-id-tag">File ID: {{ form.text_file_id }}</span>
+                  <h3>{{ isUploading ? t('workbench.btnUploading') : (form.text_file_id ? t('workbench.fileUpload.fileReady') : t('workbench.fileUpload.uploadTextZip')) }}</h3>
+                  <p v-if="!isUploading && !form.text_file_id" class="text-muted">{{ t('workbench.fileUpload.dragDrop') }}</p>
+                  <span v-if="form.text_file_id" class="file-id-tag">{{ t('workbench.fileUpload.fileId') }}: {{ form.text_file_id }}</span>
                 </div>
               </label>
             </div>
@@ -979,17 +979,17 @@ onMounted(() => {
     <div v-if="showConfirmDialog" class="confirm-dialog-overlay" @click.self="handleCancel">
       <div class="confirm-dialog-modal" role="dialog" aria-modal="true">
         <header class="confirm-dialog-header">
-          <div class="confirm-dialog-title">任务已提交</div>
-          <button class="confirm-dialog-close" type="button" @click="handleCancel" aria-label="Close">
+          <div class="confirm-dialog-title">{{ t('workbench.confirm.title') }}</div>
+          <button class="confirm-dialog-close" type="button" @click="handleCancel" :aria-label="t('common.close')">
             <X size="16" />
           </button>
         </header>
         <div class="confirm-dialog-body">
-          <p>音频合成任务已生成，可在音频管理页面查看合成进度，是否立刻跳转到音频管理页面？</p>
+          <p>{{ t('workbench.confirm.body') }}</p>
         </div>
         <div class="confirm-dialog-footer">
-          <button class="btn-cancel" @click="handleCancel">关闭</button>
-          <button class="btn-confirm" @click="handleConfirm">确定</button>
+          <button class="btn-cancel" @click="handleCancel">{{ t('workbench.confirm.cancel') }}</button>
+          <button class="btn-confirm" @click="handleConfirm">{{ t('workbench.confirm.confirm') }}</button>
         </div>
       </div>
     </div>
@@ -999,8 +999,8 @@ onMounted(() => {
     <div v-if="showVoiceSelector" class="voice-picker-overlay" @click.self="closeVoiceSelector">
       <div class="voice-picker-modal" role="dialog" aria-modal="true">
         <header class="voice-picker-header">
-          <div class="voice-picker-title">音色选择</div>
-          <button class="voice-picker-close" type="button" @click="closeVoiceSelector" aria-label="Close">
+          <div class="voice-picker-title">{{ t('workbench.voicePickerTitle') }}</div>
+          <button class="voice-picker-close" type="button" @click="closeVoiceSelector" :aria-label="t('common.close')">
             <X size="16" />
           </button>
         </header>

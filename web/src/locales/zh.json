@@ -7,6 +7,21 @@
         "login": "登录",
         "logout": "退出登录"
     },
+    "common": {
+        "loading": "加载中...",
+        "close": "关闭",
+        "confirm": "确定",
+        "cancel": "取消",
+        "download": "下载",
+        "delete": "删除",
+        "date": "日期",
+        "darkMode": "深色模式",
+        "lightMode": "浅色模式",
+        "language": {
+            "english": "English",
+            "chinese": "中文"
+        }
+    },
     "login": {
         "title": "登录到您的账户",
         "username": "用户名",
@@ -42,7 +57,10 @@
             "failed": "失败",
             "processing": "处理中"
         },
-        "deleteConfirm": "确定要删除这条记录吗？"
+        "deleteConfirm": "确定要删除这条记录吗？",
+        "deleteFail": "删除失败",
+        "empty": "暂无任务",
+        "voicePickerTitle": "音色选择"
     },
     "keys": {
         "title": "密钥管理",
@@ -105,11 +123,71 @@
         "syncSuccess": "同步完成，新增 {count} 个音色。",
         "currentKey": "当前密钥",
         "noDefaultKey": "未设置默认密钥",
-        "searchPlaceholder": "搜索音色..."
+        "searchPlaceholder": "搜索音色...",
+        "tabs": {
+            "system": "系统音色",
+            "cloned": "复刻音色",
+            "generated": "设计音色",
+            "favorites": "我的收藏"
+        },
+        "type": {
+            "system": "系统音色",
+            "cloned": "复刻音色",
+            "generated": "设计音色"
+        },
+        "defaultPreviewText": "你好，这是一段音色试听文本。",
+        "alertPreviewFailWithMsg": "生成试听失败：{message}",
+        "empty": {
+            "noVoicesFound": "未找到音色",
+            "noVoicesInCategory": "该分类暂无音色",
+            "tryDifferentSearch": "请尝试使用不同的关键词搜索",
+            "createOrSync": "你可以创建新音色或从云端同步"
+        }
+    },
+    "voiceSelector": {
+        "tabs": {
+            "all": "音色库",
+            "custom": "我的音色",
+            "favorites": "收藏音色"
+        },
+        "type": {
+            "system": "系统音色",
+            "cloned": "复刻音色",
+            "generated": "设计音色"
+        },
+        "select": {
+            "selected": "已选择",
+            "select": "选择"
+        },
+        "favorite": {
+            "favorite": "收藏",
+            "unfavorite": "取消收藏"
+        },
+        "empty": {
+            "noVoicesFound": "未找到音色",
+            "noVoicesInCategory": "该分类暂无音色",
+            "favoritesHint": "将音色加入收藏后会显示在这里"
+        }
     },
     "workbench": {
         "btnUploadFile": "上传文件",
         "btnUploading": "上传中...",
+        "selectVoice": "选择音色",
+        "voicePickerTitle": "音色选择",
+        "fileUpload": {
+            "invalidType": "仅支持上传 .txt 和 .zip 文件",
+            "uploadFail": "上传失败：{message}",
+            "fileReady": "文件已就绪",
+            "uploadTextZip": "上传文本/Zip",
+            "dragDrop": "拖拽文件到此处，或点击上传",
+            "fileId": "文件ID"
+        },
+        "confirm": {
+            "title": "任务已提交",
+            "body": "音频合成任务已生成，可在音频管理页面查看合成进度，是否立刻跳转到音频管理页面？",
+            "cancel": "关闭",
+            "confirm": "确定"
+        },
         "title": "Minimax 语音合成工作台",
         "subtitle": "使用 Minimax 模型生成高质量语音",
         "sectionBasic": "基础配置",

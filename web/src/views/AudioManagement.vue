@@ -92,7 +92,7 @@ const deleteTask = async (id) => {
     tasks.value = tasks.value.filter(t => t.id !== id)
   } catch (e) {
     console.error(e)
-    alert(t('audioManagement.deleteFail') || 'Delete failed')
+    alert(t('audioManagement.deleteFail'))
   }
 }
 
@@ -191,10 +191,10 @@ onUnmounted(() => {
     <!-- Task List -->
     <div class="task-list-container card">
       <div v-if="loading" class="loading-state">
-        Loading...
+        {{ t('common.loading') }}
       </div>
       <div v-else-if="tasks.length === 0" class="empty-state">
-        No tasks found.
+        {{ t('audioManagement.empty') }}
       </div>
       <div v-else class="task-grid">
         <div v-for="task in tasks" :key="task.id" class="task-card">
@@ -213,7 +213,7 @@ onUnmounted(() => {
                 <strong>{{ t('audioManagement.filters.voice') }}:</strong> {{ task.voice_id }}
               </span>
               <span class="meta-item">
-                <strong>Date:</strong> {{ new Date(task.created_at).toLocaleString() }}
+                <strong>{{ t('common.date') }}:</strong> {{ new Date(task.created_at).toLocaleString() }}
               </span>
             </div>
             <div v-if="task.error" class="task-error">{{ task.error }}</div>
@@ -228,10 +228,10 @@ onUnmounted(() => {
               />
             </div>
             <div class="actions">
-              <a v-if="task.status === 'success'" :href="task.output" download class="btn-icon" title="Download">
+              <a v-if="task.status === 'success'" :href="task.output" download class="btn-icon" :title="t('common.download')">
                 <Download size="18" />
               </a>
-              <button @click="deleteTask(task.id)" class="btn-icon delete" title="Delete">
+              <button @click="deleteTask(task.id)" class="btn-icon delete" :title="t('common.delete')">
                  <Trash2 size="18" />
               </button>
             </div>
@@ -244,8 +244,8 @@ onUnmounted(() => {
       <div v-if="showVoiceSelector" class="voice-picker-overlay" @click.self="closeVoiceSelector">
         <div class="voice-picker-modal" role="dialog" aria-modal="true">
           <header class="voice-picker-header">
-            <div class="voice-picker-title">音色选择</div>
-            <button class="voice-picker-close" type="button" @click="closeVoiceSelector" aria-label="Close">
+            <div class="voice-picker-title">{{ t('audioManagement.voicePickerTitle') }}</div>
+            <button class="voice-picker-close" type="button" @click="closeVoiceSelector" :aria-label="t('common.close')">
               <X size="16" />
             </button>
           </header>

@@ -31,10 +31,10 @@ watch(searchQuery, (newVal) => {
 })
 
 const tabs = computed(() => [
-  { key: 'system', label: '系统音色', icon: Monitor },
-  { key: 'cloned', label: '复刻音色', icon: Copy },
-  { key: 'generated', label: '设计音色', icon: Wand2 },
-  { key: 'favorites', label: '我的收藏', icon: Heart },
+  { key: 'system', label: t('voices.tabs.system'), icon: Monitor },
+  { key: 'cloned', label: t('voices.tabs.cloned'), icon: Copy },
+  { key: 'generated', label: t('voices.tabs.generated'), icon: Wand2 },
+  { key: 'favorites', label: t('voices.tabs.favorites'), icon: Heart },
 ])
 
 // Speech model options
@@ -60,7 +60,7 @@ const form = ref({
   watermark: false,
   // For design
   prompt: '',
-  preview_text: 'Hello, this is a test voice.',
+  preview_text: t('voices.defaultPreviewText'),
 })
 
 // Highlight matching text
@@ -287,7 +287,7 @@ const generatePreview = async (voice) => {
     }, 100)
     
   } catch (e) {
-    alert(t('voices.alertPreviewFail') || 'Failed to generate preview: ' + (e.response?.data?.message || e.message))
+    alert(t('voices.alertPreviewFailWithMsg', { message: e.response?.data?.message || e.message }))
   } finally {
     generatingPreview.value = null
   }
@@ -347,7 +347,7 @@ onMounted(fetchData)
           <input 
             v-model="searchQuery" 
             type="text" 
-            :placeholder="t('voices.searchPlaceholder') || 'Search voices...'"
+            :placeholder="t('voices.searchPlaceholder')"
             class="search-input"
           />
           <button v-if="searchQuery" @click="searchQuery = ''" class="clear-btn">
@@ -399,12 +399,12 @@ onMounted(fetchData)
           </div>
           
           <div class="voice-footer">
-            <span class="badge" :class="`badge-${voice.type}`">{{ voice.type }}</span>
+            <span class="badge" :class="`badge-${voice.type}`">{{ t('voices.type.' + voice.type) || voice.type }}</span>
             <button 
               v-if="voice.type !== 'system'" 
               @click="deleteVoice(voice)" 
               class="btn-icon delete"
-              title="Delete Voice"
+              :title="t('common.delete')"
             >
               <Trash2 size="16" />
             </button>
@@ -417,8 +417,8 @@ onMounted(fetchData)
           <Search v-if="searchQuery" size="48" />
           <Mic v-else size="48" />
         </div>
-        <h3>{{ searchQuery ? 'No voices found' : 'No voices in this category' }}</h3>
-        <p>{{ searchQuery ? 'Try a different search term' : 'Create a new voice or sync from server' }}</p>
+        <h3>{{ searchQuery ? t('voices.empty.noVoicesFound') : t('voices.empty.noVoicesInCategory') }}</h3>
+        <p>{{ searchQuery ? t('voices.empty.tryDifferentSearch') : t('voices.empty.createOrSync') }}</p>
       </div>
     </div>
 

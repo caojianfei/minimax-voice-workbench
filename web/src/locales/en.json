@@ -7,6 +7,21 @@
         "login": "Login",
         "logout": "Logout"
     },
+    "common": {
+        "loading": "Loading...",
+        "close": "Close",
+        "confirm": "Confirm",
+        "cancel": "Cancel",
+        "download": "Download",
+        "delete": "Delete",
+        "date": "Date",
+        "darkMode": "Dark Mode",
+        "lightMode": "Light Mode",
+        "language": {
+            "english": "English",
+            "chinese": "中文"
+        }
+    },
     "login": {
         "title": "Sign in to your account",
         "username": "Username",
@@ -42,7 +57,10 @@
             "failed": "Failed",
             "processing": "Processing"
         },
-        "deleteConfirm": "Are you sure you want to delete this record?"
+        "deleteConfirm": "Are you sure you want to delete this record?",
+        "deleteFail": "Delete failed",
+        "empty": "No tasks found.",
+        "voicePickerTitle": "Voice Picker"
     },
     "keys": {
         "title": "Key Management",
@@ -105,13 +123,75 @@
         "syncSuccess": "Sync complete. Added {count} voices.",
         "currentKey": "Current Key",
         "noDefaultKey": "No Default Key Set",
-        "searchPlaceholder": "Search voices..."
+        "searchPlaceholder": "Search voices...",
+        "tabs": {
+            "system": "System Voices",
+            "cloned": "Cloned Voices",
+            "generated": "Designed Voices",
+            "favorites": "Favorites"
+        },
+        "type": {
+            "system": "System",
+            "cloned": "Cloned",
+            "generated": "Designed"
+        },
+        "defaultPreviewText": "Hello, this is a test voice.",
+        "alertPreviewFailWithMsg": "Failed to generate preview: {message}",
+        "empty": {
+            "noVoicesFound": "No voices found",
+            "noVoicesInCategory": "No voices in this category",
+            "tryDifferentSearch": "Try a different search term",
+            "createOrSync": "Create a new voice or sync from server"
+        }
+    },
+    "voiceSelector": {
+        "tabs": {
+            "all": "Voice Library",
+            "custom": "My Voices",
+            "favorites": "Favorites"
+        },
+        "type": {
+            "system": "System",
+            "cloned": "Cloned",
+            "generated": "Designed"
+        },
+        "select": {
+            "selected": "Selected",
+            "select": "Select"
+        },
+        "favorite": {
+            "favorite": "Favorite",
+            "unfavorite": "Unfavorite"
+        },
+        "empty": {
+            "noVoicesFound": "No voices found",
+            "noVoicesInCategory": "No voices in this category",
+            "favoritesHint": "Mark voices as favorite to see them here"
+        }
     },
     "workbench": {
         "btnUploadFile": "Upload File",
         "btnUploading": "Uploading...",
+        "selectVoice": "Select Voice",
+        "voicePickerTitle": "Voice Picker",
+        "fileUpload": {
+            "invalidType": "Only .txt and .zip files are allowed",
+            "uploadFail": "Upload failed: {message}",
+            "fileReady": "File Ready",
+            "uploadTextZip": "Upload Text/Zip",
+            "dragDrop": "Drag & drop or click to upload",
+            "fileId": "File ID"
+        },
+        "confirm": {
+            "title": "Task Submitted",
+            "body": "The synthesis task has been created. You can track progress in Audio Management. Go there now?",
+            "cancel": "Close",
+            "confirm": "Confirm"
+        },
         "title": "Minimax Voice Workbench",
         "subtitle": "Create high-quality speech with Minimax models",
+        "sectionBasic": "Basic Setup",
+        "sectionParameters": "Audio Parameters",
         "sectionCommon": "Common Settings",
         "sectionAdvanced": "Advanced Settings",
         "inputType": {
