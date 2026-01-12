@@ -1,9 +1,9 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
-import axios from 'axios'
 import { Plus, Trash2, Play, Mic, Cloud, Palette, Monitor, Copy, Wand2, Pause, Heart, Star, Search, X, Loader2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useFavorites } from '../composables/useFavorites'
+import { api } from '../api/client'
 
 const { t } = useI18n()
 const { toggleFavorite, isFavorite } = useFavorites()
@@ -61,10 +61,6 @@ const form = ref({
   // For design
   prompt: '',
   preview_text: 'Hello, this is a test voice.',
-})
-
-const api = axios.create({
-  baseURL: import.meta.env.DEV ? 'http://localhost:8080/api' : '/api'
 })
 
 // Highlight matching text

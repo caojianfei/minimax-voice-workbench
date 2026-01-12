@@ -3,7 +3,17 @@
         "workbench": "工作台",
         "audioManagement": "音频管理",
         "voices": "音色库",
-        "keys": "API密钥"
+        "keys": "API密钥",
+        "login": "登录",
+        "logout": "退出登录"
+    },
+    "login": {
+        "title": "登录到您的账户",
+        "username": "用户名",
+        "password": "密码",
+        "submit": "登录",
+        "loading": "登录中...",
+        "error": "登录失败"
     },
     "audioManagement": {
         "title": "音频管理",

@@ -1,6 +1,11 @@
 package api
 
 import (
+	"path/filepath"
+
+	"minimax-voice-workbench/internal/auth"
+	"minimax-voice-workbench/internal/config"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,7 +22,15 @@ func SetupRouter(r *gin.Engine) {
 		c.Next()
 	})
 
+	// Login Route (Public, Rate Limited)
+	r.POST("/api/login", auth.LoginRateLimitMiddleware(), LoginHandler)
+
+	// Public Config
+	r.GET("/api/config", GetPublicConfig)
+
 	api := r.Group("/api")
+	// Apply Auth Middleware
+	api.Use(auth.AuthMiddleware())
 	{
 		// Keys
 		api.GET("/keys", ListKeys)
@@ -46,5 +59,10 @@ func SetupRouter(r *gin.Engine) {
 	}
 
 	// Static files for generated audio
-	r.Static("/files", "./generated")
+	// Use configured storage path
+	basePath := config.GlobalConfig.Storage.BasePath
+	// Default to "./generated" if basePath is current dir, effectively.
+	// Actually config defaults basePath to CWD.
+	generatedPath := filepath.Join(basePath, "generated")
+	r.Static("/files", generatedPath)
 }

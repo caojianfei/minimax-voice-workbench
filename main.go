@@ -5,21 +5,30 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"mime"
 	"minimax-voice-workbench/internal/api"
+	"minimax-voice-workbench/internal/config"
 	"minimax-voice-workbench/internal/database"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
-//go:embed web/dist/*
+//go:embed web/dist/* web/dist/assets/*
 var staticFS embed.FS
 
 func main() {
+	// Initialize Config
+	if err := config.Init(); err != nil {
+		log.Fatalf("Failed to initialize config: %v", err)
+	}
+
 	// Initialize Database
-	database.InitDB(".")
+	database.InitDB(config.GlobalConfig.Storage.BasePath)
 
 	r := gin.Default()
 
@@ -44,27 +53,46 @@ func main() {
 	if err == nil {
 		r.NoRoute(func(c *gin.Context) {
 			path := c.Request.URL.Path
+			relPath := strings.TrimPrefix(path, "/")
+			if relPath == "" {
+				relPath = "index.html"
+			}
+
 			// If file exists in distFS, serve it
-			if f, err := distFS.Open(path[1:]); err == nil {
-				f.Close()
-				c.FileFromFS(path, http.FS(distFS))
+			if b, err := fs.ReadFile(distFS, relPath); err == nil {
+				contentType := mime.TypeByExtension(filepath.Ext(relPath))
+				if contentType == "" {
+					contentType = "application/octet-stream"
+				}
+				c.Data(http.StatusOK, contentType, b)
 				return
 			}
 			// Fallback to index.html for Vue Router history mode
-			c.FileFromFS("/", http.FS(distFS))
+			if b, err := fs.ReadFile(distFS, "index.html"); err == nil {
+				contentType := mime.TypeByExtension(".html")
+				if contentType == "" {
+					contentType = "text/html; charset=utf-8"
+				}
+				c.Data(http.StatusOK, contentType, b)
+				return
+			}
+			c.Status(http.StatusNotFound)
 		})
 	} else {
 		log.Println("Static FS not found or invalid (expected during dev before build):", err)
 	}
 
+	port := config.GlobalConfig.Server.Port
+	addr := fmt.Sprintf(":%d", port)
+
 	// Make sure generated dir exists
 	// Open Browser
 	go func() {
-		OpenBrowser("http://localhost:8080")
+		OpenBrowser("http://localhost" + addr)
 	}()
 
-	log.Println("Server starting on :8080")
-	if err := r.Run(":8080"); err != nil {
+	log.Printf("Server starting on %s", addr)
+	if err := r.Run(addr); err != nil {
 		log.Fatal(err)
 	}
 }

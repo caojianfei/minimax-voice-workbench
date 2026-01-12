@@ -1,8 +1,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
 import { Trash2, Plus, Key as KeyIcon, Star } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import { api } from '../api/client'
 
 const { t } = useI18n()
 
@@ -10,10 +10,6 @@ const keys = ref([])
 const newKey = ref('')
 const newRemark = ref('')
 const loading = ref(false)
-
-const api = axios.create({
-  baseURL: import.meta.env.DEV ? 'http://localhost:8080/api' : '/api'
-})
 
 const fetchKeys = async () => {
   try {

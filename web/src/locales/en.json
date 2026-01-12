@@ -3,7 +3,17 @@
         "workbench": "Workbench",
         "audioManagement": "Audio Management",
         "voices": "Voice Library",
-        "keys": "API Keys"
+        "keys": "API Keys",
+        "login": "Login",
+        "logout": "Logout"
+    },
+    "login": {
+        "title": "Sign in to your account",
+        "username": "Username",
+        "password": "Password",
+        "submit": "Sign in",
+        "loading": "Signing in...",
+        "error": "Login failed"
     },
     "audioManagement": {
         "title": "Audio Management",

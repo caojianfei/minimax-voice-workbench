@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Search, Star, Library, User, Heart, X, Check, Play, Pause, Loader2 } from 'lucide-vue-next'
 import { useFavorites } from '../composables/useFavorites'
 import { useI18n } from 'vue-i18n'
-import axios from 'axios'
+import { api } from '../api/client'
 
 const props = defineProps({
   modelValue: {
@@ -23,10 +23,6 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'select', 'favorite'])
 const { t } = useI18n()
 const { toggleFavorite, isFavorite } = useFavorites()
-
-const api = axios.create({
-  baseURL: import.meta.env.DEV ? 'http://localhost:8080/api' : '/api'
-})
 
 // State
 const activeTab = ref('all')

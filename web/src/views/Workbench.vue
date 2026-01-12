@@ -1,10 +1,10 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
 import { Play, Download, Trash2, Cpu, ChevronDown, ChevronUp, Info, Key, Library, X, RotateCcw } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import VoiceSelector from '../components/VoiceSelector.vue'
+import { api } from '../api/client'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -149,10 +149,6 @@ const languageBoostOptions = computed(() => [
   { value: 'Tamil', label: t('workbench.options.tamil') },
   { value: 'Afrikaans', label: t('workbench.options.afrikaans') },
 ])
-
-const api = axios.create({
-  baseURL: import.meta.env.DEV ? 'http://localhost:8080/api' : '/api'
-})
 
 const clamp = (value, min, max) => Math.max(min, Math.min(value, max))
 

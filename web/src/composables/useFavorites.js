@@ -1,13 +1,9 @@
 import { ref } from 'vue'
-import axios from 'axios'
+import { api } from '../api/client'
 
 const favorites = ref(new Set())
 let initialized = false
 let initPromise = null
-
-const api = axios.create({
-  baseURL: import.meta.env.DEV ? 'http://localhost:8080/api' : '/api'
-})
 
 const ensureLoaded = () => {
   if (initialized) return initPromise

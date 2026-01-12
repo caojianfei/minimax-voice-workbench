@@ -1,10 +1,10 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import axios from 'axios'
 import { Download, Trash2, Search, RotateCcw, Filter, ChevronDown, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import VoiceSelector from '../components/VoiceSelector.vue'
 import SmartAudioPlayer from '../components/SmartAudioPlayer.vue'
+import { api } from '../api/client'
 
 const { t } = useI18n()
 
@@ -19,10 +19,6 @@ const filters = ref({
   voice_id: '',
   start_date: '',
   end_date: ''
-})
-
-const api = axios.create({
-  baseURL: import.meta.env.DEV ? 'http://localhost:8080/api' : '/api'
 })
 
 const selectedVoiceLabel = computed(() => {
