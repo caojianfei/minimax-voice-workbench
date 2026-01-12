@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"minimax-voice-workbench/internal/config"
 	"minimax-voice-workbench/internal/database"
 	"minimax-voice-workbench/internal/model"
 	"minimax-voice-workbench/pkg/minimax"
@@ -126,7 +127,7 @@ func CloneVoice(c *gin.Context) {
 	}
 
 	// 3. Save main file temporarily
-	tempDir := "uploads"
+	tempDir := filepath.Join(config.GlobalConfig.Storage.BasePath, "uploads")
 	os.MkdirAll(tempDir, 0755)
 	tempPath := filepath.Join(tempDir, fmt.Sprintf("%d_%s", time.Now().Unix(), fileHeader.Filename))
 	if err := c.SaveUploadedFile(fileHeader, tempPath); err != nil {
@@ -192,7 +193,7 @@ func CloneVoice(c *gin.Context) {
 	// 7. Download demo audio if available
 	var demoAudioPath string
 	if cloneResp.DemoAudio != "" {
-		outputDir := "generated/voices"
+		outputDir := filepath.Join(config.GlobalConfig.Storage.BasePath, "generated", "voices")
 		os.MkdirAll(outputDir, 0755)
 		filename := fmt.Sprintf("demo_%s.mp3", voiceID)
 		demoFilePath := filepath.Join(outputDir, filename)
@@ -277,7 +278,7 @@ func DesignVoice(c *gin.Context) {
 	audioBytes, err := hex.DecodeString(resp.TrialAudio)
 	var previewPath string
 	if err == nil {
-		outputDir := "generated/voices"
+		outputDir := filepath.Join(config.GlobalConfig.Storage.BasePath, "generated", "voices")
 		os.MkdirAll(outputDir, 0755)
 		filename := fmt.Sprintf("preview_%s.mp3", resp.VoiceID)
 		filepathStr := filepath.Join(outputDir, filename)
@@ -453,7 +454,7 @@ func GeneratePreview(c *gin.Context) {
 	}
 
 	// Save File
-	outputDir := "generated/voices"
+	outputDir := filepath.Join(config.GlobalConfig.Storage.BasePath, "generated", "voices")
 	os.MkdirAll(outputDir, 0755)
 	filename := fmt.Sprintf("preview_%s.mp3", voice.VoiceID)
 	filepathStr := filepath.Join(outputDir, filename)

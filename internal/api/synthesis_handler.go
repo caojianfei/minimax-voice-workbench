@@ -6,6 +6,7 @@ import (
 	"io"
 	"mime"
 	"mime/multipart"
+	"minimax-voice-workbench/internal/config"
 	"minimax-voice-workbench/internal/database"
 	"minimax-voice-workbench/internal/model"
 	"minimax-voice-workbench/pkg/minimax"
@@ -207,7 +208,7 @@ func downloadFile(url string, task *model.SynthesisTask) error {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	outputDir := filepath.Join("generated", "audios")
+	outputDir := filepath.Join(config.GlobalConfig.Storage.BasePath, "generated", "audios")
 	os.MkdirAll(outputDir, 0755)
 
 	ext := task.Format
@@ -256,7 +257,7 @@ func DeleteSynthesisTask(c *gin.Context) {
 	if err := database.DB.First(&task, id).Error; err == nil {
 		if len(task.Output) > 7 {
 			fName := task.Output[7:]
-			os.Remove(filepath.Join("generated", fName))
+			os.Remove(filepath.Join(config.GlobalConfig.Storage.BasePath, "generated", fName))
 		}
 	}
 
@@ -291,7 +292,7 @@ func UploadTextFile(c *gin.Context) {
 		return
 	}
 
-	tempDir := "uploads"
+	tempDir := filepath.Join(config.GlobalConfig.Storage.BasePath, "uploads")
 	os.MkdirAll(tempDir, 0755)
 	tempPath := filepath.Join(tempDir, fmt.Sprintf("%d_%s", time.Now().Unix(), fileHeader.Filename))
 	if err := c.SaveUploadedFile(fileHeader, tempPath); err != nil {

@@ -47,9 +47,9 @@ func InitDB(dataDir string) {
 	log.Println("Database initialized successfully at", dbPath)
 }
 
-func migrateVoiceStorage(db *gorm.DB) {
+func migrateVoiceStorage(db *gorm.DB, basePath string) {
 	// Ensure new directory exists
-	newDir := "generated/voices"
+	newDir := filepath.Join(basePath, "generated", "voices")
 	if err := os.MkdirAll(newDir, 0755); err != nil {
 		log.Printf("Migration Warning: Failed to create %s: %v", newDir, err)
 	}
@@ -103,7 +103,7 @@ func migrateVoiceStorage(db *gorm.DB) {
 		// Assuming /files/ maps to ./generated/
 		// So /files/demo_123.mp3 -> ./generated/demo_123.mp3
 
-		srcPath := filepath.Join("generated", filename)
+		srcPath := filepath.Join(basePath, "generated", filename)
 		// Handle case where path might be relative or different
 		if !strings.HasPrefix(currentPath, "/files/") {
 			// Maybe it was stored as local path? Assume relative to project root if not /files/
