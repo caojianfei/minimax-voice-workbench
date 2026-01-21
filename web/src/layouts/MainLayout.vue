@@ -1,13 +1,24 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { Mic, Key, Disc, Activity, Languages, Library, Sun, Moon, Menu, X, LogOut } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import Footer from '../components/Footer.vue'
+import { api } from '../api/client'
 
 const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
+const authEnabled = ref(false)
+
+onMounted(async () => {
+  try {
+    const { data } = await api.get('/config')
+    authEnabled.value = data.auth_enabled
+  } catch (e) {
+    console.error('Failed to load config', e)
+  }
+})
 
 const navItems = [
   { key: 'workbench', path: '/workbench', icon: Mic },
@@ -103,7 +114,7 @@ watch(() => route.path, () => {
           <Languages size="20" />
           <span>{{ locale === 'zh' ? t('common.language.english') : t('common.language.chinese') }}</span>
         </button>
-        <button @click="handleLogout" class="nav-item logout-btn">
+        <button v-if="authEnabled" @click="handleLogout" class="nav-item logout-btn">
           <LogOut size="20" />
           <span>{{ t('nav.logout') }}</span>
         </button>
