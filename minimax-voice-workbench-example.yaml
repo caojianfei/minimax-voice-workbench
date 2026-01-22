@@ -1,0 +1,13 @@
+server:
+  port: 8080
+storage:
+  basePath: "."
+security:
+  enabled: false
+  admin:
+    username: ""
+    password: ""
+  captcha:
+    enabled: false
+    turnstileSiteKey: ""
+    turnstileSecretKey: ""

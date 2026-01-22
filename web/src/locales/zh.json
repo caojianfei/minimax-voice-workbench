@@ -7,6 +7,7 @@
         "login": "登录",
         "logout": "退出登录"
     },
+    "appTitle": "minmax 语音工作台",
     "common": {
         "loading": "加载中...",
         "close": "关闭",

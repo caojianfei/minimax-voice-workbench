@@ -7,6 +7,7 @@
         "login": "Login",
         "logout": "Logout"
     },
+    "appTitle": "minimax voice workbench",
     "common": {
         "loading": "Loading...",
         "close": "Close",
